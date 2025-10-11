@@ -1,0 +1,19 @@
+[package]
+name = "sshkeyv"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[features]
+# Plants a one-past-the-end read in the wire reader. `make overread` builds
+# with it and requires the process to die of a bounds check. See the buffer
+# section of the README: a Vec with spare capacity indexed by a separate
+# length has the same blind spot a C buffer larger than its data has, and
+# Rust's bounds check only helps when the Vec is the length of the data.
+plant_overread = []
+
+[profile.release]
+panic = "abort"
+overflow-checks = true
+debug-assertions = true

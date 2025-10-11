@@ -1,0 +1,25 @@
+# `cq c` stages the whole tree, so everything that is not source is named
+# here. Named rather than globbed because a glob swallows the next thing
+# without asking.
+target/
+sshkeyv
+t/corpus/
+t/scratch/
+t/__pycache__/
+__pycache__/
+# Generated keys never enter the tree. The suite makes them in a mktemp -d
+# outside the repository and deletes them, so these entries are a second
+# line of defence and not the mechanism.
+*.pub
+*.pem
+*.der
+*.sig
+*.key
+*-cert.pub
+id_ed25519
+id_rsa
+id_ecdsa
+ca
+ca.pub
+known_hosts
+allowed_signers
