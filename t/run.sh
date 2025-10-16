@@ -54,6 +54,18 @@ note "usage"
 [ $? -eq 2 ] && ok "an unknown command exits 2" \
              || no "an unknown command did not exit 2"
 
+note "base64, against python's"
+out=$(python3 "$HERE/b64cmp.py" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+# Both halves on purpose: the exit status alone would pass if the script
+# died before comparing anything, and the summary line alone would pass if
+# the script crashed after printing it.
+if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^154 compared, 0 differ, .* 0 under-refused$'; then
+    ok "base64 agrees with python both ways"
+else
+    no "base64 disagrees with python"
+fi
+
 note "source invariants"
 n=$(cat "$ROOT"/src/*.rs | grep -c 'unsafe')
 if [ "$n" -eq 0 ]; then
@@ -65,6 +77,13 @@ if grep -A1 '^\[dependencies\]' "$ROOT/Cargo.toml" | tail -1 | grep -q '^ *$'; t
     ok "Cargo.toml declares no dependencies"
 else
     no "Cargo.toml has grown a dependency"
+fi
+w=$(cd "$ROOT" && touch src/main.rs && cargo build --release --offline 2>&1 \
+      | grep -c '^warning')
+if [ "$w" -eq 0 ]; then
+    ok "the release build is warning-free"
+else
+    no "the release build emits $w warnings"
 fi
 
 echo
