@@ -98,10 +98,10 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       `all` first, LICENSE, .gitignore naming every generated artefact
   why: the collection's gate builds the default target of every commit, so
   the first commit has to build.
-- [ ] base64 decoder and encoder, strict about padding and alphabet
+- [x] base64 decoder and encoder, strict about padding and alphabet
   why: every format here is base64 inside something, and a lenient decoder
   turns a corrupt file into a plausible key.
-- [ ] SSH wire format reader: u32, u64, string, bool, mpint, with the
+- [x] SSH wire format reader: u32, u64, string, bool, mpint, with the
       remaining-length check in one place
   why: every blob in the project is this format, and the bounds check wants
   to be written once.
@@ -114,11 +114,11 @@ reduced run would print a row of passes having compared sshkeyv with itself.
 - [ ] `sshkeyv fp`: SHA256 fingerprint in base64 with no padding, and the
       bit count, against `ssh-keygen -l -f`
   why: the first field-by-field comparison with the oracle.
-- [ ] corpus generator: ed25519, ecdsa 256/384/521, rsa 2048/4096, into a
+- [x] corpus generator: ed25519, ecdsa 256/384/521, rsa 2048/4096, into a
       mktemp -d outside the repository, deleted on exit
   why: no generated key may ever enter the tree, and a trap is the only
   thing that holds when the suite fails halfway.
-- [ ] t/run.sh: oracle refusal when ssh-keygen or openssl is missing, the
+- [x] t/run.sh: oracle refusal when ssh-keygen or openssl is missing, the
       staleness guard, and the last line in the form "N passed, M failed"
   why: a missing oracle must be a refusal; terminfo's guard is the pattern.
 - [ ] MD5 and `-E md5`, against `ssh-keygen -l -E md5`
@@ -133,8 +133,9 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       curve, ed25519 fixed at 256
   why: ssh-keygen prints the bits first on every line, so a wrong count is
   a visible disagreement in the fingerprint comparison.
-- [ ] `sshkeyv fields`, and t/wire.py as the third parser it is compared to
-  why: a field-level comparison that does not go through OpenSSH at all.
+- [ ] `sshkeyv fields`: the parsed key as tab-separated name and value
+  why: t/wire.py arrived with the wire reader and compares the generic
+  string walk; fields is the same idea once the key types are known.
 - [ ] RFC4716 writer, against `ssh-keygen -e`, and reader, against
       `ssh-keygen -i`
   why: a second encoding of the same key, which gives the two formats

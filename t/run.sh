@@ -43,9 +43,38 @@ for tool in ssh-keygen openssl python3; do
     }
 done
 
+# The corpus holds private keys, so it is built OUTSIDE the repository and
+# removed on the way out. A private key committed once stays in the object
+# database after the file is deleted, and the collection's audit reads
+# objects rather than the working tree, so this is the one failure in the
+# list that cannot be undone afterwards.
+C=$(mktemp -d "${TMPDIR:-/tmp}/sshkeyv.corpus.XXXXXX") || exit 2
+case "$C" in
+  "$ROOT"*) echo "sshkeyv: refusing to build the corpus inside the repository: $C" >&2
+            exit 2 ;;
+esac
+trap 'rm -rf "$C"' EXIT INT TERM
+
 note "the tools themselves"
 echo "    $(ssh -V 2>&1)"
 echo "    $(openssl version)"
+
+note "corpus"
+sh "$HERE/mkcorpus.sh" "$C" >/dev/null 2>"$C/.mkerr" || {
+    echo "sshkeyv: the corpus generator failed:" >&2
+    cat "$C/.mkerr" >&2
+    exit 2
+}
+nf=$(ls "$C" | wc -l)
+echo "    $nf files in $C"
+# A corpus smaller than this means the generator fell over partway and
+# every comparison after it would run over whatever did get made and
+# report passes. The number is a floor, not the count.
+if [ "$nf" -ge 100 ]; then
+    ok "the corpus generator produced $nf files"
+else
+    no "the corpus generator produced only $nf files"
+fi
 
 note "usage"
 "$BIN" >/dev/null 2>&1
@@ -64,6 +93,16 @@ if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^154 compared, 0 differ, .*
     ok "base64 agrees with python both ways"
 else
     no "base64 disagrees with python"
+fi
+
+note "the SSH wire format, against t/wire.py"
+out=$(python3 "$HERE/wire.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* blobs, [0-9]* lines compared, 0 differ, 0 stop-offsets differ$'; then
+    ok "the wire reader agrees with the python parser line for line"
+else
+    no "the wire reader disagrees with the python parser"
 fi
 
 note "source invariants"
