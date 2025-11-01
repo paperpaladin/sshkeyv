@@ -9,6 +9,8 @@
 //   4  parsed, but not valid now or not authorising the principal asked about
 
 mod b64;
+mod fields;
+mod key;
 mod wire;
 
 use std::io::{Read, Write};
@@ -16,6 +18,7 @@ use std::io::{Read, Write};
 const USAGE: &str = "\
 usage: sshkeyv COMMAND [OPTIONS] [FILE...]
 
+  fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
   b64 -d | -e     base64 between stdin and stdout, strictly
@@ -98,6 +101,42 @@ fn blob_of_file(path: &str) -> Result<Vec<u8>, String> {
     b64::decode(field.as_bytes()).map_err(|e| format!("{}: {}", path, e))
 }
 
+/// The first non-blank line of a file. Every public key format this
+/// program reads is one line, and a file with several is a file where the
+/// first one is the subject.
+fn first_line(path: &str) -> Result<String, String> {
+    let raw = match std::fs::read(path) {
+        Ok(v) => v,
+        Err(e) => return Err(format!("{}: {}", path, e)),
+    };
+    let text = match String::from_utf8(raw) {
+        Ok(s) => s,
+        Err(_) => return Err(format!("{}: not valid UTF-8", path)),
+    };
+    match text.lines().find(|l| !l.trim().is_empty()) {
+        Some(l) => Ok(l.to_string()),
+        None => Err(format!("{}: empty", path)),
+    }
+}
+
+fn cmd_fields(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let mut code = 0;
+    for path in args {
+        let r = first_line(path)
+            .and_then(|l| key::PublicKey::parse_line(&l))
+            .and_then(|k| fields::print(path, &k));
+        if let Err(e) = r {
+            eprintln!("sshkeyv: {}", e);
+            code = 1;
+        }
+    }
+    code
+}
+
 fn cmd_blob(args: &[String]) -> i32 {
     if args.is_empty() {
         eprint!("{}", USAGE);
@@ -160,6 +199,7 @@ fn main() {
         std::process::exit(2);
     }
     let code = match args[0].as_str() {
+        "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),
         "b64" => cmd_b64(&args[1..]),
         other => {

@@ -1,6 +1,6 @@
 // The SSH wire format, as RFC 4251 section 5 defines it and as every blob
-// in this project uses it. This commit has uint32 and string; the rest of
-// the types arrive with the parsers that need them.
+// in this project uses it. uint32, string, string-as-text and mpint; the
+// remaining types arrive with the parsers that need them.
 //
 // All of it goes through one reader so that the bounds check is written
 // once. A parser of this shape fails in exactly one place: a length field
@@ -70,5 +70,79 @@ impl<'a> Reader<'a> {
         #[cfg(feature = "plant_overread")]
         let n = n + 1;
         self.bytes(n)
+    }
+
+    /// A string that has to be UTF-8 to mean anything: an algorithm name, a
+    /// curve name, a principal, a key id.
+    pub fn text(&mut self) -> Res<&'a str> {
+        let at = self.pos;
+        let b = self.string()?;
+        match std::str::from_utf8(b) {
+            Ok(s) => Ok(s),
+            Err(e) => Err(format!(
+                "{}: string at offset {} is not UTF-8: {}",
+                self.what, at, e
+            )),
+        }
+    }
+
+    /// An mpint, returned as the unsigned big-endian magnitude together
+    /// with whether the encoding was canonical.
+    ///
+    /// A negative value is refused outright: nothing in an SSH key or
+    /// signature is ever negative, and a leading 0x80 in a modulus means
+    /// the parse is lost rather than that the modulus is negative.
+    ///
+    /// Redundant leading zero octets are NOT refused, and that is a change
+    /// made because the oracle disagreed. RFC 4251 says the value is
+    /// stored with the minimum number of octets, so an extra zero is a
+    /// violation; ssh-keygen -l reads such a key without complaining. An
+    /// over-refusal is a defect rather than caution, so the bytes are
+    /// accepted the way OpenSSH accepts them and the fact is reported as a
+    /// field instead of as an error.
+    pub fn mpint_nc(&mut self) -> Res<(&'a [u8], bool)> {
+        let at = self.pos;
+        let b = self.string()?;
+        if b.is_empty() {
+            return Ok((b, false));
+        }
+        if b[0] & 0x80 != 0 {
+            return Err(format!(
+                "{}: mpint at offset {} is negative",
+                self.what, at
+            ));
+        }
+        let mut i = 0;
+        while i < b.len() && b[i] == 0 {
+            i += 1;
+        }
+        // One leading zero is required when the top bit of the magnitude is
+        // set, so that case is canonical; any other leading zero is not.
+        let canonical = if i == 0 {
+            true
+        } else if i == 1 && b.len() > 1 && b[1] & 0x80 != 0 {
+            true
+        } else {
+            false
+        };
+        Ok((&b[i..], canonical))
+    }
+
+    /// Refuse trailing bytes. A blob with something after the last field is
+    /// not a blob this program understands, and reading the prefix and
+    /// ignoring the rest is how one parser comes to disagree with the next.
+    /// ssh-keygen -l refuses a key blob with four zero bytes appended, and
+    /// this check is here because the refusal comparison caught sshkeyv
+    /// reading one.
+    pub fn end(&self) -> Res<()> {
+        if !self.at_end() {
+            return Err(format!(
+                "{}: {} trailing bytes after offset {}",
+                self.what,
+                self.remaining(),
+                self.pos
+            ));
+        }
+        Ok(())
     }
 }

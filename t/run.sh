@@ -105,6 +105,26 @@ else
     no "the wire reader disagrees with the python parser"
 fi
 
+note "key fields, against ssh-keygen -l and a python parse"
+out=$(python3 "$HERE/fieldcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* files, [0-9]* compared, 0 differ, 0 refused, [0-9]* declined$'; then
+    ok "every key field agrees with the oracles"
+else
+    no "a key field disagrees with an oracle"
+fi
+
+note "malformed key lines, with ssh-keygen as the authority on malformed"
+out=$(python3 "$HERE/refusecmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* cases, [0-9]* refused by both, 0 over-refused, 0 under-refused$'; then
+    ok "sshkeyv and ssh-keygen refuse the same lines"
+else
+    no "sshkeyv and ssh-keygen disagree about which lines are malformed"
+fi
+
 note "source invariants"
 n=$(cat "$ROOT"/src/*.rs | grep -c 'unsafe')
 if [ "$n" -eq 0 ]; then

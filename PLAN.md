@@ -105,7 +105,7 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       remaining-length check in one place
   why: every blob in the project is this format, and the bounds check wants
   to be written once.
-- [ ] public key line parser: algorithm name, blob, comment, and the rule
+- [x] public key line parser: algorithm name, blob, comment, and the rule
       that the name inside the blob must match the name outside it
   why: that check is the first thing a hand-edited key line fails.
 - [ ] SHA-256, byte for byte against `sha256sum`
@@ -129,11 +129,11 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   on the key blob.
 - [ ] SHA-1, needed by bubblebabble and by the ssh-rsa signature algorithm
   why: ssh-rsa with SHA-1 is still accepted by certificates in the field.
-- [ ] key bit counts for every type: rsa from the modulus, ecdsa from the
+- [x] key bit counts for every type: rsa from the modulus, ecdsa from the
       curve, ed25519 fixed at 256
   why: ssh-keygen prints the bits first on every line, so a wrong count is
   a visible disagreement in the fingerprint comparison.
-- [ ] `sshkeyv fields`: the parsed key as tab-separated name and value
+- [x] `sshkeyv fields`: the parsed key as tab-separated name and value
   why: t/wire.py arrived with the wire reader and compares the generic
   string walk; fields is the same idea once the key types are known.
 - [ ] RFC4716 writer, against `ssh-keygen -e`, and reader, against
