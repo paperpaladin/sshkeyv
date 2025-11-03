@@ -10,6 +10,7 @@
 
 mod b64;
 mod fields;
+mod hash;
 mod key;
 mod wire;
 
@@ -21,6 +22,7 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
+  hash ALG        hex digest of stdin: sha256 or sha512
   b64 -d | -e     base64 between stdin and stdout, strictly
 ";
 
@@ -192,6 +194,23 @@ fn render(s: &[u8]) -> String {
     }
 }
 
+// The hash command exists for the suite: sha256sum and sha512sum are the
+// oracle for the digests, and a digest that is wrong only for inputs of a
+// particular length is exactly the defect a key-sized test cannot see.
+fn cmd_hash(args: &[String]) -> i32 {
+    let data = read_stdin();
+    let d = match args.first().map(|s| s.as_str()) {
+        Some("sha256") => fields::hex(&hash::sha256(&data)),
+        Some("sha512") => fields::hex(&hash::sha512(&data)),
+        _ => {
+            eprint!("{}", USAGE);
+            return 2;
+        }
+    };
+    println!("{}", d);
+    0
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {
@@ -201,6 +220,7 @@ fn main() {
     let code = match args[0].as_str() {
         "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),
+        "hash" => cmd_hash(&args[1..]),
         "b64" => cmd_b64(&args[1..]),
         other => {
             eprintln!("sshkeyv: unknown command {}", other);

@@ -105,6 +105,15 @@ else
     no "the wire reader disagrees with the python parser"
 fi
 
+note "SHA-256 and SHA-512, against coreutils and hashlib"
+out=$(python3 "$HERE/hashcmp.py" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^406 compared, 0 differ$'; then
+    ok "both digests agree with sha256sum, sha512sum and hashlib"
+else
+    no "a digest disagrees with the oracles"
+fi
+
 note "key fields, against ssh-keygen -l and a python parse"
 out=$(python3 "$HERE/fieldcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
