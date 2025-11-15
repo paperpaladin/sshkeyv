@@ -113,3 +113,14 @@ pub fn encode(b: &[u8]) -> String {
     }
     out
 }
+
+/// Encode without padding. The SHA256 fingerprint form `ssh-keygen -l`
+/// prints has the padding stripped, and the SSHSIG and OpenSSH private key
+/// containers do not.
+pub fn encode_nopad(b: &[u8]) -> String {
+    let mut s = encode(b);
+    while s.ends_with('=') {
+        s.pop();
+    }
+    s
+}

@@ -114,6 +114,22 @@ else
     no "a digest disagrees with the oracles"
 fi
 
+note "fingerprints, against ssh-keygen -l"
+out=$(python3 "$HERE/fpcmp.py" "$C" sha256 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^[0-9]* compared, 0 differ, 0 refused$'; then
+    ok "every fingerprint line equals ssh-keygen's"
+else
+    no "a fingerprint line differs from ssh-keygen's"
+fi
+# The comparison above is worth nothing over a corpus with no certificates
+# in it, so the counts it prints are asserted on separately.
+if echo "$out" | grep -q '^4[0-9] plain keys, 2[0-9] certificates$'; then
+    ok "the fingerprint comparison saw both plain keys and certificates"
+else
+    no "the fingerprint comparison did not see both kinds"
+fi
+
 note "key fields, against ssh-keygen -l and a python parse"
 out=$(python3 "$HERE/fieldcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

@@ -113,7 +113,7 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: the SHA256 fingerprint is the field everyone reads, so the hash is
   on the critical path before anything else can be compared, and the
   signature algorithms name SHA-512 as often as SHA-256.
-- [ ] `sshkeyv fp`: SHA256 fingerprint in base64 with no padding, and the
+- [x] `sshkeyv fp`: SHA256 fingerprint in base64 with no padding, and the
       bit count, against `ssh-keygen -l -f`
   why: the first field-by-field comparison with the oracle.
 - [x] corpus generator: ed25519, ecdsa 256/384/521, rsa 2048/4096, into a

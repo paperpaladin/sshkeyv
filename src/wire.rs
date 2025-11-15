@@ -146,3 +146,46 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 }
+
+/// The writer. Only enough of it to re-encode what was read, which is what
+/// a fingerprint of a certificate's subject key needs: ssh-keygen -l on a
+/// certificate prints the fingerprint of the key inside it, not of the
+/// certificate, so the plain key blob has to be rebuilt from the fields
+/// the certificate carries inline.
+#[derive(Default)]
+pub struct Writer {
+    pub b: Vec<u8>,
+}
+
+impl Writer {
+    pub fn new() -> Writer {
+        Writer { b: Vec::new() }
+    }
+    pub fn u32(&mut self, v: u32) {
+        self.b.extend_from_slice(&v.to_be_bytes());
+    }
+    pub fn string(&mut self, s: &[u8]) {
+        self.u32(s.len() as u32);
+        self.b.extend_from_slice(s);
+    }
+    /// An mpint, written canonically: no leading zero octets except the one
+    /// that keeps a value with its top bit set positive.
+    pub fn mpint(&mut self, m: &[u8]) {
+        let mut i = 0;
+        while i < m.len() && m[i] == 0 {
+            i += 1;
+        }
+        let m = &m[i..];
+        if m.is_empty() {
+            self.u32(0);
+            return;
+        }
+        if m[0] & 0x80 != 0 {
+            self.u32(m.len() as u32 + 1);
+            self.b.push(0);
+            self.b.extend_from_slice(m);
+        } else {
+            self.string(m);
+        }
+    }
+}

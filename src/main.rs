@@ -10,6 +10,7 @@
 
 mod b64;
 mod fields;
+mod fp;
 mod hash;
 mod key;
 mod wire;
@@ -19,6 +20,8 @@ use std::io::{Read, Write};
 const USAGE: &str = "\
 usage: sshkeyv COMMAND [OPTIONS] [FILE...]
 
+  fp [-E HASH] [FILE...]
+                  fingerprints, the line ssh-keygen -l prints
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
@@ -121,6 +124,43 @@ fn first_line(path: &str) -> Result<String, String> {
     }
 }
 
+fn cmd_fp(args: &[String]) -> i32 {
+    let mut kind = fp::Kind::Sha256;
+    let mut paths: Vec<&String> = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "-E" {
+            match it.next().and_then(|n| fp::Kind::from_name(n)) {
+                Some(k) => kind = k,
+                None => {
+                    eprintln!("sshkeyv: -E wants a hash name");
+                    return 2;
+                }
+            }
+        } else {
+            paths.push(a);
+        }
+    }
+    if paths.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let mut code = 0;
+    for path in paths {
+        let r = first_line(path)
+            .and_then(|l| key::PublicKey::parse_line(&l))
+            .and_then(|k| fp::line(kind, &k));
+        match r {
+            Ok(l) => println!("{}", l),
+            Err(e) => {
+                eprintln!("sshkeyv: {}", e);
+                code = 1;
+            }
+        }
+    }
+    code
+}
+
 fn cmd_fields(args: &[String]) -> i32 {
     if args.is_empty() {
         eprint!("{}", USAGE);
@@ -218,6 +258,7 @@ fn main() {
         std::process::exit(2);
     }
     let code = match args[0].as_str() {
+        "fp" => cmd_fp(&args[1..]),
         "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),
         "hash" => cmd_hash(&args[1..]),

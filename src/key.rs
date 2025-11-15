@@ -6,7 +6,7 @@
 // read differently by different programs, which is the whole reason the
 // check is here and not an afterthought.
 
-use crate::wire::{Reader, Res};
+use crate::wire::{Reader, Res, Writer};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Curve {
@@ -213,6 +213,24 @@ pub fn material<'a>(r: &mut Reader<'a>, plain: &str) -> Res<Material<'a>> {
     }
 }
 
+impl<'a> Material<'a> {
+    /// Write the key material back out in wire form. Used to rebuild the
+    /// plain public key blob of a certificate's subject key.
+    pub fn write(&self, w: &mut Writer) {
+        match self {
+            Material::Ed25519 { pk } => w.string(pk),
+            Material::Ecdsa { curve, point } => {
+                w.string(curve.name().as_bytes());
+                w.string(point);
+            }
+            Material::Rsa { e, n, .. } => {
+                w.mpint(e);
+                w.mpint(n);
+            }
+        }
+    }
+}
+
 /// A public key as a file holds it: the clear-text algorithm name, the
 /// blob, and whatever followed the blob on the line.
 pub struct PublicKey {
@@ -266,5 +284,24 @@ impl PublicKey {
             r.end()?;
         }
         Ok(m)
+    }
+
+    /// The plain public key blob. For a plain key that is the blob itself;
+    /// for a certificate it is the subject key rebuilt from the fields the
+    /// certificate carries inline.
+    ///
+    /// This matters because ssh-keygen -l on a certificate prints the
+    /// fingerprint of the key inside it and not of the certificate. The
+    /// first version of sshkeyv fp hashed the certificate blob and
+    /// disagreed with the oracle on every certificate in the corpus.
+    pub fn subject_blob(&self) -> Res<Vec<u8>> {
+        if !self.algo.cert {
+            return Ok(self.blob.clone());
+        }
+        let m = self.material()?;
+        let mut w = Writer::new();
+        w.string(self.algo.plain.as_bytes());
+        m.write(&mut w);
+        Ok(w.b)
     }
 }
