@@ -123,7 +123,7 @@ reduced run would print a row of passes having compared sshkeyv with itself.
 - [x] t/run.sh: oracle refusal when ssh-keygen or openssl is missing, the
       staleness guard, and the last line in the form "N passed, M failed"
   why: a missing oracle must be a refusal; terminfo's guard is the pattern.
-- [ ] MD5 and `-E md5`, against `ssh-keygen -l -E md5`
+- [x] MD5 and `-E md5`, against `ssh-keygen -l -E md5`
   why: the colon-hex form is still what older deployments print.
 - [ ] bubblebabble digest and `-E bubblebabble`, against `ssh-keygen -B`
   why: a third fingerprint encoding of the same bytes, and ssh-keygen has a

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""SHA-256 and SHA-512 against sha256sum, sha512sum and python's hashlib.
+"""SHA-256, SHA-512 and MD5 against the coreutils tools and hashlib.
 
 Lengths 0 to 200 inclusive, plus 1000 and 100000. The interesting ones are
 the padding boundaries: 55, 56 and 57 for SHA-256 and 111, 112 and 113 for
 SHA-512, where the length counter does or does not fit in the last block
 and an extra block appears. A digest tested only on key-sized inputs
-cannot see a defect that needs one of those lengths.
+cannot see a defect that needs one of those lengths. MD5 writes its
+length little-endian where the other two write it big-endian, so the same
+boundaries test a different line of code there.
 
 Prints "N compared, M differ" and exits non-zero on a disagreement.
 """
@@ -23,7 +25,8 @@ LENGTHS = list(range(0, 201)) + [1000, 100000]
 def main():
     compared = differ = 0
     bad = []
-    for alg, sumtool in (("sha256", "sha256sum"), ("sha512", "sha512sum")):
+    for alg, sumtool in (("sha256", "sha256sum"), ("sha512", "sha512sum"),
+                         ("md5", "md5sum")):
         for n in LENGTHS:
             data = bytes((i * 101 + n * 7) % 256 for i in range(n))
             got = subprocess.run([BIN, "hash", alg], input=data,

@@ -19,12 +19,14 @@ use crate::key::PublicKey;
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Sha256,
+    Md5,
 }
 
 impl Kind {
     pub fn from_name(s: &str) -> Option<Kind> {
         match s {
             "sha256" | "SHA256" => Some(Kind::Sha256),
+            "md5" | "MD5" => Some(Kind::Md5),
             _ => None,
         }
     }
@@ -35,6 +37,19 @@ pub fn digest(kind: Kind, blob: &[u8]) -> String {
     match kind {
         Kind::Sha256 => {
             format!("SHA256:{}", crate::b64::encode_nopad(&hash::sha256(blob)))
+        }
+        Kind::Md5 => {
+            // Colon-separated lower-case hex, which is the form a
+            // pre-6.8 OpenSSH printed and the form old runbooks hold.
+            let d = hash::md5(blob);
+            let mut s = String::from("MD5:");
+            for (i, b) in d.iter().enumerate() {
+                if i > 0 {
+                    s.push(':');
+                }
+                s.push_str(&format!("{:02x}", b));
+            }
+            s
         }
     }
 }
