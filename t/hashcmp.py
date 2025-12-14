@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SHA-256, SHA-512 and MD5 against the coreutils tools and hashlib.
+"""SHA-256, SHA-512, MD5 and SHA-1 against the coreutils tools and hashlib.
 
 Lengths 0 to 200 inclusive, plus 1000 and 100000. The interesting ones are
 the padding boundaries: 55, 56 and 57 for SHA-256 and 111, 112 and 113 for
@@ -26,7 +26,7 @@ def main():
     compared = differ = 0
     bad = []
     for alg, sumtool in (("sha256", "sha256sum"), ("sha512", "sha512sum"),
-                         ("md5", "md5sum")):
+                         ("md5", "md5sum"), ("sha1", "sha1sum")):
         for n in LENGTHS:
             data = bytes((i * 101 + n * 7) % 256 for i in range(n))
             got = subprocess.run([BIN, "hash", alg], input=data,

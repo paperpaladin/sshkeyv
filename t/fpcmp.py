@@ -37,9 +37,12 @@ def main():
         else:
             plains += 1
         for h in hashes:
-            want = subprocess.run(
-                ["ssh-keygen", "-l", "-E", h, "-f", path],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            # ssh-keygen prints the bubblebabble digest with -B, not with
+            # -E, and with no hash name in front of it.
+            cmd = (["ssh-keygen", "-B", "-f", path] if h == "bubblebabble"
+                   else ["ssh-keygen", "-l", "-E", h, "-f", path])
+            want = subprocess.run(cmd, stdout=subprocess.PIPE,
+                                  stderr=subprocess.DEVNULL)
             if want.returncode != 0:
                 continue
             got = subprocess.run([BIN, "fp", "-E", h, path],

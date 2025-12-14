@@ -125,11 +125,11 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: a missing oracle must be a refusal; terminfo's guard is the pattern.
 - [x] MD5 and `-E md5`, against `ssh-keygen -l -E md5`
   why: the colon-hex form is still what older deployments print.
-- [ ] bubblebabble digest and `-E bubblebabble`, against `ssh-keygen -B`
+- [x] bubblebabble digest and `-E bubblebabble`, against `ssh-keygen -B`
   why: a third fingerprint encoding of the same bytes, and ssh-keygen has a
   dedicated flag for it, so it is a free independent check on the SHA-1 and
   on the key blob.
-- [ ] SHA-1, needed by bubblebabble and by the ssh-rsa signature algorithm
+- [x] SHA-1, needed by bubblebabble and by the ssh-rsa signature algorithm
   why: ssh-rsa with SHA-1 is still accepted by certificates in the field.
 - [x] key bit counts for every type: rsa from the modulus, ecdsa from the
       curve, ed25519 fixed at 256

@@ -25,7 +25,7 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
-  hash ALG        hex digest of stdin: sha256, sha512 or md5
+  hash ALG        hex digest of stdin: sha256, sha512, sha1 or md5
   b64 -d | -e     base64 between stdin and stdout, strictly
 ";
 
@@ -243,6 +243,7 @@ fn cmd_hash(args: &[String]) -> i32 {
         Some("sha256") => fields::hex(&hash::sha256(&data)),
         Some("sha512") => fields::hex(&hash::sha512(&data)),
         Some("md5") => fields::hex(&hash::md5(&data)),
+        Some("sha1") => fields::hex(&hash::sha1(&data)),
         _ => {
             eprint!("{}", USAGE);
             return 2;

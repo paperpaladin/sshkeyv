@@ -105,17 +105,17 @@ else
     no "the wire reader disagrees with the python parser"
 fi
 
-note "SHA-256, SHA-512 and MD5, against coreutils and hashlib"
+note "SHA-256, SHA-512, MD5 and SHA-1, against coreutils and hashlib"
 out=$(python3 "$HERE/hashcmp.py" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
-if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^609 compared, 0 differ$'; then
-    ok "all three digests agree with the coreutils tools and hashlib"
+if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^812 compared, 0 differ$'; then
+    ok "all four digests agree with the coreutils tools and hashlib"
 else
     no "a digest disagrees with the oracles"
 fi
 
-note "fingerprints, against ssh-keygen -l"
-out=$(python3 "$HERE/fpcmp.py" "$C" sha256 md5 2>&1); rc=$?
+note "fingerprints in four forms, against ssh-keygen -l and -B"
+out=$(python3 "$HERE/fpcmp.py" "$C" sha256 md5 sha1 bubblebabble 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
 if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^[0-9]* compared, 0 differ, 0 refused$'; then
     ok "every fingerprint line equals ssh-keygen's"
