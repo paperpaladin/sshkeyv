@@ -9,6 +9,7 @@
 //   4  parsed, but not valid now or not authorising the principal asked about
 
 mod b64;
+mod cert;
 mod fields;
 mod fp;
 mod hash;

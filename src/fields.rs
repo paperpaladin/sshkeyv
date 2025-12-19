@@ -7,6 +7,7 @@
 // "different". The suite reads these lines into a dictionary and asks
 // about one name at a time.
 
+use crate::cert::Cert;
 use crate::key::{Material, PublicKey};
 
 pub fn print(path: &str, k: &PublicKey) -> Result<(), String> {
@@ -45,6 +46,64 @@ pub fn print(path: &str, k: &PublicKey) -> Result<(), String> {
             }
         }
     }
+    if k.algo.cert {
+        cert_fields(path, &Cert::parse(&k.blob, k.algo)?)?;
+    }
+    Ok(())
+}
+
+fn cert_fields(path: &str, c: &Cert) -> Result<(), String> {
+    let f = |n: &str, v: &str| println!("{}\t{}\t{}", path, n, v);
+    f("cert-algorithm", c.algo.name);
+    f("cert-subject-kind", c.subject.label());
+    f("cert-subject-bits", &c.subject.bits().to_string());
+    f("cert-nonce", &hex(c.nonce));
+    f("cert-nonce-bytes", &c.nonce.len().to_string());
+    f("cert-serial", &c.serial.to_string());
+    f("cert-type", &c.cert_type.to_string());
+    f("cert-type-name", c.type_name());
+    f("cert-key-id", c.key_id);
+    f("cert-principal-count", &c.principals.len().to_string());
+    for (i, p) in c.principals.iter().enumerate() {
+        f(&format!("cert-principal-{}", i), p);
+    }
+    f("cert-valid-after", &c.valid_after.to_string());
+    f("cert-valid-before", &c.valid_before.to_string());
+    f("cert-critical-count", &c.critical.len().to_string());
+    for (i, o) in c.critical.iter().enumerate() {
+        f(&format!("cert-critical-{}-name", i), o.name);
+        f(&format!("cert-critical-{}-data", i), &hex(o.data));
+        // An option whose data holds exactly one SSH string gets the
+        // string too: that is how force-command and source-address are
+        // specified, and it is what ssh-keygen -L prints beside the name.
+        match o.as_string() {
+            Some(Ok(s)) => f(
+                &format!("cert-critical-{}-string", i),
+                &String::from_utf8_lossy(s),
+            ),
+            Some(Err(_)) => f(&format!("cert-critical-{}-string", i), "<not a string>"),
+            None => {}
+        }
+    }
+    f("cert-extension-count", &c.extensions.len().to_string());
+    for (i, o) in c.extensions.iter().enumerate() {
+        f(&format!("cert-extension-{}-name", i), o.name);
+        f(&format!("cert-extension-{}-data", i), &hex(o.data));
+        match o.as_string() {
+            Some(Ok(s)) => f(
+                &format!("cert-extension-{}-string", i),
+                &String::from_utf8_lossy(s),
+            ),
+            Some(Err(_)) => f(&format!("cert-extension-{}-string", i), "<not a string>"),
+            None => {}
+        }
+    }
+    f("cert-reserved-bytes", &c.reserved.len().to_string());
+    f("cert-ca-algorithm", c.ca_algo()?);
+    f("cert-ca-blob-bytes", &c.signature_key.len().to_string());
+    f("cert-signature-algorithm", c.signature_algo()?);
+    f("cert-signature-blob-bytes", &c.signature.len().to_string());
+    f("cert-tbs-bytes", &c.tbs.len().to_string());
     Ok(())
 }
 

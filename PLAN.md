@@ -173,11 +173,11 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       private section, wrong padding
   why: a refusal needs its own oracle, which here is ssh-keygen refusing
   the same file.
-- [ ] certificate blob parse: nonce, public key, serial, type, key id,
+- [x] certificate blob parse: nonce, public key, serial, type, key id,
       principals, validity, critical options, extensions, reserved, CA key,
       signature
   why: the centre of the project. Everything after this reads these fields.
-- [ ] the critical options and extensions lists: name and data strings,
+- [x] the critical options and extensions lists: name and data strings,
       the lexical ordering rule, duplicate names
   why: an out-of-order options list is something sshd refuses and
   `ssh-keygen -L` prints without complaint.

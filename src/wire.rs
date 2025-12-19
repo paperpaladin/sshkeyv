@@ -2,6 +2,9 @@
 // in this project uses it. uint32, string, string-as-text and mpint; the
 // remaining types arrive with the parsers that need them.
 //
+// A boolean reader is deliberately absent: no field in a key, a
+// certificate or an SSHSIG signature is a boolean.
+//
 // All of it goes through one reader so that the bounds check is written
 // once. A parser of this shape fails in exactly one place: a length field
 // read out of the input and then used as an index. There are nine such
@@ -33,6 +36,17 @@ impl<'a> Reader<'a> {
         self.pos == self.b.len()
     }
 
+    /// Everything consumed so far. A certificate's signature covers the
+    /// blob from the start up to but not including the signature string,
+    /// so the parser asks for this at the moment it reaches the signature
+    /// rather than recomputing the offset afterwards. Recomputing it is
+    /// where a verifier comes to hash the wrong range, and a verifier that
+    /// hashes the wrong range rejects everything, which looks like
+    /// strictness.
+    pub fn consumed(&self) -> &'a [u8] {
+        &self.b[..self.pos]
+    }
+
     fn need(&self, n: usize) -> Res<()> {
         if self.remaining() < n {
             return Err(format!(
@@ -48,6 +62,13 @@ impl<'a> Reader<'a> {
         let r = &self.b[self.pos..self.pos + n];
         self.pos += n;
         Ok(r)
+    }
+
+    pub fn u64(&mut self) -> Res<u64> {
+        let b = self.bytes(8)?;
+        Ok(u64::from_be_bytes([
+            b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+        ]))
     }
 
     pub fn u32(&mut self) -> Res<u32> {

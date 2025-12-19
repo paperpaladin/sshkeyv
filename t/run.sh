@@ -140,6 +140,16 @@ else
     no "a key field disagrees with an oracle"
 fi
 
+note "certificate fields, against ssh-keygen -L and a python parse"
+out=$(python3 "$HERE/certcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* certificates, [0-9]* compared, 0 differ, 0 refused$'; then
+    ok "every certificate field agrees with the oracles"
+else
+    no "a certificate field disagrees with an oracle, or the corpus has a gap"
+fi
+
 note "malformed key lines, with ssh-keygen as the authority on malformed"
 out=$(python3 "$HERE/refusecmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
