@@ -181,14 +181,14 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       the lexical ordering rule, duplicate names
   why: an out-of-order options list is something sshd refuses and
   `ssh-keygen -L` prints without complaint.
-- [ ] `sshkeyv show`, compared against `ssh-keygen -L` field by field
+- [x] `sshkeyv show`, compared against `ssh-keygen -L` field by field
   why: field by field and not file by file, because the indentation differs
   and a text diff can only say "different".
-- [ ] the unknown-option print forms: "UNKNOWN OPTION: <hex> (len N)" for
+- [x] the unknown-option print forms: "UNKNOWN OPTION: <hex> (len N)" for
       an option with data and "UNKNOWN FLAG OPTION" for one without
   why: ssh-keygen has exact text for these and a certificate carrying one
   is the case that fails closed on a real server.
-- [ ] validity window: the two 64-bit times, the ssh-keygen date format,
+- [x] validity window: the two 64-bit times, the ssh-keygen date format,
       forever and never
   why: 0 and 2^64-1 are the real sentinels and they print specially.
 - [ ] `sshkeyv valid --at TIME`: not yet valid, expired, valid, and the

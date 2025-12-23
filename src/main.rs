@@ -13,6 +13,8 @@ mod cert;
 mod fields;
 mod fp;
 mod hash;
+mod show;
+mod time;
 mod key;
 mod wire;
 
@@ -21,6 +23,7 @@ use std::io::{Read, Write};
 const USAGE: &str = "\
 usage: sshkeyv COMMAND [OPTIONS] [FILE...]
 
+  show [FILE...]  certificate fields, the block ssh-keygen -L prints
   fp [-E HASH] [FILE...]
                   fingerprints, the line ssh-keygen -l prints
   fields [FILE...]  one \"path name value\" line per field, tab separated
@@ -123,6 +126,31 @@ fn first_line(path: &str) -> Result<String, String> {
         Some(l) => Ok(l.to_string()),
         None => Err(format!("{}: empty", path)),
     }
+}
+
+fn cmd_show(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let mut code = 0;
+    for path in args {
+        let r = first_line(path)
+            .and_then(|l| key::PublicKey::parse_line(&l))
+            .and_then(|k| {
+                if !k.algo.cert {
+                    return Err(format!("{} is not a certificate", path));
+                }
+                let subject = k.subject_blob()?;
+                let c = cert::Cert::parse(&k.blob, k.algo)?;
+                show::show(path, &c, &subject)
+            });
+        if let Err(e) = r {
+            eprintln!("sshkeyv: {}", e);
+            code = 1;
+        }
+    }
+    code
 }
 
 fn cmd_fp(args: &[String]) -> i32 {
@@ -261,6 +289,7 @@ fn main() {
         std::process::exit(2);
     }
     let code = match args[0].as_str() {
+        "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),
         "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),

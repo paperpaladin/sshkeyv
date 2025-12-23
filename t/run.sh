@@ -150,6 +150,16 @@ else
     no "a certificate field disagrees with an oracle, or the corpus has a gap"
 fi
 
+note "sshkeyv show against ssh-keygen -L, whole output"
+out=$(sh "$HERE/showcmp.sh" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* certificates, [0-9]* identical, 0 differ$'; then
+    ok "every certificate block is byte for byte ssh-keygen's"
+else
+    no "a certificate block differs from ssh-keygen's"
+fi
+
 note "malformed key lines, with ssh-keygen as the authority on malformed"
 out=$(python3 "$HERE/refusecmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
