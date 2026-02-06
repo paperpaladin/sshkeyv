@@ -95,9 +95,17 @@ ssh-keygen -q -s ca_ed25519 -I no_principals c_noprincipals.pub
 cert many       ca_ed25519 ed25519 -I many_principals \
   -n a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20
 
-# Host certificates.
+# Host certificates. The wildcard one is in the corpus because a principal
+# holding a * means the certificate's effect depends on whether whoever
+# reads it pattern-matches, and sshkeyv reports that rather than guessing.
 cert host       ca_ed25519 ed25519 -h -I host_web -n web1.example.com,web2
 cert host_rsa   ca_rsa     rsa2048 -h -I host_rsa -n db1.example.com
+cert host_glob  ca_ed25519 ed25519 -h -I host_wildcard -n '*.example.com,web?'
+
+# A principal with a comma in it cannot be made with -n, which splits on
+# commas, so this one is built by hand further down if ever needed; the
+# point it would make is already made by valid_principals being a sequence
+# of strings rather than a name-list.
 
 # Critical options and extensions, including the two cases that fail closed
 # on a real server: an option the server does not know, and an extension

@@ -8,6 +8,7 @@
 //   3  a signature did not verify
 //   4  parsed, but not valid now or not authorising the principal asked about
 
+mod ask;
 mod b64;
 mod cert;
 mod fields;
@@ -23,6 +24,10 @@ use std::io::{Read, Write};
 const USAGE: &str = "\
 usage: sshkeyv COMMAND [OPTIONS] [FILE...]
 
+  valid [--at TIME] [FILE...]
+                  is each certificate in its window, and for how long
+  authorises NAME [FILE...]
+                  does each certificate authorise NAME
   show [FILE...]  certificate fields, the block ssh-keygen -L prints
   fp [-E HASH] [FILE...]
                   fingerprints, the line ssh-keygen -l prints
@@ -126,6 +131,90 @@ fn first_line(path: &str) -> Result<String, String> {
         Some(l) => Ok(l.to_string()),
         None => Err(format!("{}: empty", path)),
     }
+}
+
+/// Read one file as a certificate. The subject blob is returned with it
+/// because show needs it and the borrow of the blob cannot outlive it.
+fn read_cert(path: &str) -> Result<(key::PublicKey, Vec<u8>), String> {
+    let k = key::PublicKey::parse_line(&first_line(path)?)?;
+    if !k.algo.cert {
+        return Err(format!("{} is not a certificate", path));
+    }
+    let subject = k.subject_blob()?;
+    Ok((k, subject))
+}
+
+fn cmd_valid(args: &[String]) -> i32 {
+    let mut at = time::now();
+    let mut paths: Vec<&String> = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "--at" {
+            match it.next().map(|v| time::parse(v)) {
+                Some(Ok(t)) => at = t,
+                Some(Err(e)) => {
+                    eprintln!("sshkeyv: {}", e);
+                    return 2;
+                }
+                None => {
+                    eprintln!("sshkeyv: --at wants a time");
+                    return 2;
+                }
+            }
+        } else {
+            paths.push(a);
+        }
+    }
+    if paths.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let mut code = 0;
+    for path in paths {
+        match read_cert(path).and_then(|(k, _)| {
+            let c = cert::Cert::parse(&k.blob, k.algo)?;
+            Ok(ask::valid(path, &c, at))
+        }) {
+            Ok((line, ok)) => {
+                println!("{}", line);
+                if !ok && code == 0 {
+                    code = 4;
+                }
+            }
+            Err(e) => {
+                eprintln!("sshkeyv: {}", e);
+                code = 1;
+            }
+        }
+    }
+    code
+}
+
+fn cmd_authorises(args: &[String]) -> i32 {
+    if args.len() < 2 {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let name = &args[0];
+    let mut code = 0;
+    for path in &args[1..] {
+        match read_cert(path).and_then(|(k, _)| {
+            let c = cert::Cert::parse(&k.blob, k.algo)?;
+            Ok(ask::authorises(path, &c, name))
+        }) {
+            Ok((line, ok)) => {
+                println!("{}", line);
+                if !ok && code == 0 {
+                    code = 4;
+                }
+            }
+            Err(e) => {
+                eprintln!("sshkeyv: {}", e);
+                code = 1;
+            }
+        }
+    }
+    code
 }
 
 fn cmd_show(args: &[String]) -> i32 {
@@ -289,6 +378,8 @@ fn main() {
         std::process::exit(2);
     }
     let code = match args[0].as_str() {
+        "valid" => cmd_valid(&args[1..]),
+        "authorises" => cmd_authorises(&args[1..]),
         "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),
         "fields" => cmd_fields(&args[1..]),

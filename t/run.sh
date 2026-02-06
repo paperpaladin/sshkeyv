@@ -70,7 +70,7 @@ echo "    $nf files in $C"
 # A corpus smaller than this means the generator fell over partway and
 # every comparison after it would run over whatever did get made and
 # report passes. The number is a floor, not the count.
-if [ "$nf" -ge 100 ]; then
+if [ "$nf" -ge 120 ]; then
     ok "the corpus generator produced $nf files"
 else
     no "the corpus generator produced only $nf files"
@@ -158,6 +158,17 @@ if [ $rc -eq 0 ] && echo "$out" | tail -1 \
     ok "every certificate block is byte for byte ssh-keygen's"
 else
     no "a certificate block differs from ssh-keygen's"
+fi
+
+note "validity verdicts and principal authorisation"
+out=$(python3 "$HERE/validcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] \
+   && echo "$out" | grep -q '^[0-9]* certificates, [0-9]* verdicts compared, 0 differ$' \
+   && echo "$out" | grep -q '^[0-9]* authorisation questions, 0 differ$'; then
+    ok "every verdict matches the window and the list ssh-keygen prints"
+else
+    no "a verdict disagrees with the window or the list ssh-keygen prints"
 fi
 
 note "malformed key lines, with ssh-keygen as the authority on malformed"

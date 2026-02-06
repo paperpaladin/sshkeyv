@@ -191,11 +191,11 @@ reduced run would print a row of passes having compared sshkeyv with itself.
 - [x] validity window: the two 64-bit times, the ssh-keygen date format,
       forever and never
   why: 0 and 2^64-1 are the real sentinels and they print specially.
-- [ ] `sshkeyv valid --at TIME`: not yet valid, expired, valid, and the
+- [x] `sshkeyv valid --at TIME`: not yet valid, expired, valid, and the
       remaining time
   why: "for how long is this good" is the question, and it needs a clock
   the test can set.
-- [ ] `sshkeyv authorises NAME`: the empty principal list meaning "all",
+- [x] `sshkeyv authorises NAME`: the empty principal list meaning "all",
       the host versus user certificate distinction
   why: an empty list authorises everyone, which is the single most
   surprising rule in the format.
