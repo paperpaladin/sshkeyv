@@ -171,6 +171,16 @@ else
     no "a verdict disagrees with the window or the list ssh-keygen prints"
 fi
 
+note "the private key container, against ssh-keygen -y, -l and a python parse"
+out=$(python3 "$HERE/privcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* compared, 0 differ, 0 refused; [0-9]* malformed refused by both, 0 over-refused, 0 under-refused$'; then
+    ok "the container header and private section agree with the oracles"
+else
+    no "the container header or private section disagrees with an oracle"
+fi
+
 note "malformed key lines, with ssh-keygen as the authority on malformed"
 out=$(python3 "$HERE/refusecmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

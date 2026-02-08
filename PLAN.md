@@ -150,26 +150,26 @@ reduced run would print a row of passes having compared sshkeyv with itself.
 - [ ] PKCS8 reader, so `convert` round trips, against `ssh-keygen -i -m pkcs8`
   why: the reverse direction fails differently; a DER length read as
   short-form where it is long-form is the classic.
-- [ ] PEM armour reader: the BEGIN and END lines, the base64 body, the
+- [x] PEM armour reader: the BEGIN and END lines, the base64 body, the
       refusals for a mismatched label and a truncated body
   why: the private key container is PEM, and so is PKCS8.
-- [ ] openssh-key-v1 container header: magic, cipher, KDF name, number of
+- [x] openssh-key-v1 container header: magic, cipher, KDF name, number of
       keys, the public key, the length of the private section
   why: this is the file people actually have on disk and `ssh-keygen -l`
   reads it, so the header has an oracle.
-- [ ] bcrypt-pbkdf KDF options: salt length and rounds, reported without
+- [x] bcrypt-pbkdf KDF options: salt length and rounds, reported without
       decrypting anything
   why: "how many rounds is this key protected with" is a question with no
   tool to answer it, and the answer is 24 bytes into the file.
-- [ ] unencrypted private section: the check integers, the key type, the
+- [x] unencrypted private section: the check integers, the key type, the
       public half, the comment, and the padding rule
   why: the two check integers being equal is the only integrity signal the
   format has, and it is what a wrong passphrase trips.
-- [ ] assert the private section's public half equals the container's
+- [x] assert the private section's public half equals the container's
       public key
   why: a container whose two copies of the public key disagree is a file
   no tool reads the same way twice.
-- [ ] refusal cases for the container: bad magic, nkeys not 1, short
+- [x] refusal cases for the container: bad magic, nkeys not 1, short
       private section, wrong padding
   why: a refusal needs its own oracle, which here is ssh-keygen refusing
   the same file.

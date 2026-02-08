@@ -17,6 +17,9 @@ mod hash;
 mod show;
 mod time;
 mod key;
+mod pem;
+mod privkey;
+mod privshow;
 mod wire;
 
 use std::io::{Read, Write};
@@ -28,6 +31,7 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
                   is each certificate in its window, and for how long
   authorises NAME [FILE...]
                   does each certificate authorise NAME
+  priv [FILE...]  the private key container header, without decrypting
   show [FILE...]  certificate fields, the block ssh-keygen -L prints
   fp [-E HASH] [FILE...]
                   fingerprints, the line ssh-keygen -l prints
@@ -217,6 +221,33 @@ fn cmd_authorises(args: &[String]) -> i32 {
     code
 }
 
+fn cmd_priv(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let mut code = 0;
+    for path in args {
+        let r = std::fs::read_to_string(path)
+            .map_err(|e| format!("{}: {}", path, e))
+            .and_then(|t| pem::parse(&t).map_err(|e| format!("{}: {}", path, e)))
+            .and_then(|p| {
+                if p.label != "OPENSSH PRIVATE KEY" {
+                    return Err(format!(
+                        "{}: the PEM label is {:?}, not OPENSSH PRIVATE KEY",
+                        path, p.label
+                    ));
+                }
+                privshow::print(path, &p.body)
+            });
+        if let Err(e) = r {
+            eprintln!("sshkeyv: {}", e);
+            code = 1;
+        }
+    }
+    code
+}
+
 fn cmd_show(args: &[String]) -> i32 {
     if args.is_empty() {
         eprint!("{}", USAGE);
@@ -380,6 +411,7 @@ fn main() {
     let code = match args[0].as_str() {
         "valid" => cmd_valid(&args[1..]),
         "authorises" => cmd_authorises(&args[1..]),
+        "priv" => cmd_priv(&args[1..]),
         "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),
         "fields" => cmd_fields(&args[1..]),
