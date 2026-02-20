@@ -203,10 +203,10 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: a critical-options test over a corpus with no critical options
   passes having done nothing. The counts are the guard against that and
   the suite asserts each one is non-zero.
-- [ ] bignum: comparison, add, subtract, multiply, divide with remainder,
+- [x] bignum: comparison, add, subtract, multiply, divide with remainder,
       from and to big-endian bytes
   why: RSA needs it and nothing in std has it.
-- [ ] modular exponentiation, against `openssl` and python's pow
+- [x] modular exponentiation, against `openssl` and python's pow
   why: the one operation RSA verification is.
 - [ ] RSA PKCS#1 v1.5 verification, with the DigestInfo prefix checked
       rather than searched for

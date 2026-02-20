@@ -10,6 +10,7 @@
 
 mod ask;
 mod b64;
+mod bignum;
 mod cert;
 mod fields;
 mod fp;
@@ -38,6 +39,7 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
+  big OP A B [M]  bignum arithmetic on hex arguments, for the suite
   hash ALG        hex digest of stdin: sha256, sha512, sha1 or md5
   b64 -d | -e     base64 between stdin and stdout, strictly
 ";
@@ -386,6 +388,75 @@ fn render(s: &[u8]) -> String {
 // The hash command exists for the suite: sha256sum and sha512sum are the
 // oracle for the digests, and a digest that is wrong only for inputs of a
 // particular length is exactly the defect a key-sized test cannot see.
+// The big command exists for the suite. RSA verification is one
+// exponentiation and the curve code is a few thousand multiplications, so
+// a defect in the bignum shows up as "every signature is invalid", which
+// is indistinguishable from strictness. python's own integers are the
+// oracle.
+fn cmd_big(args: &[String]) -> i32 {
+    let hex = |s: &String| -> Option<bignum::Nat> {
+        let mut b = Vec::with_capacity((s.len() + 1) / 2);
+        let s = if s.len() % 2 == 1 {
+            format!("0{}", s)
+        } else {
+            s.clone()
+        };
+        for i in (0..s.len()).step_by(2) {
+            b.push(u8::from_str_radix(&s[i..i + 2], 16).ok()?);
+        }
+        Some(bignum::Nat::from_be(&b))
+    };
+    if args.len() < 3 {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let (a, b) = match (hex(&args[1]), hex(&args[2])) {
+        (Some(a), Some(b)) => (a, b),
+        _ => {
+            eprintln!("sshkeyv: big wants hex arguments");
+            return 2;
+        }
+    };
+    let m = args.get(3).and_then(hex);
+    let out = |n: &bignum::Nat| {
+        let w = (n.bits() + 7) / 8;
+        println!("{}", fields::hex(&n.to_be(w.max(1)).unwrap()));
+    };
+    match args[0].as_str() {
+        "add" => out(&a.add(&b)),
+        "sub" => {
+            if a.cmp(&b) == std::cmp::Ordering::Less {
+                eprintln!("sshkeyv: sub would be negative");
+                return 1;
+            }
+            out(&a.sub(&b))
+        }
+        "mul" => out(&a.mul(&b)),
+        "div" => out(&a.divrem(&b).0),
+        "rem" => out(&a.divrem(&b).1),
+        "bits" => println!("{}", a.bits()),
+        "modexp" => match m {
+            Some(m) if !m.is_zero() => out(&a.modexp(&b, &m)),
+            _ => {
+                eprintln!("sshkeyv: modexp wants a non-zero modulus");
+                return 2;
+            }
+        },
+        "invmod" => match m {
+            Some(m) if !m.is_zero() => out(&a.invmod_prime(&m)),
+            _ => {
+                eprintln!("sshkeyv: invmod wants a non-zero prime modulus");
+                return 2;
+            }
+        },
+        other => {
+            eprintln!("sshkeyv: unknown big operation {}", other);
+            return 2;
+        }
+    }
+    0
+}
+
 fn cmd_hash(args: &[String]) -> i32 {
     let data = read_stdin();
     let d = match args.first().map(|s| s.as_str()) {
@@ -416,6 +487,7 @@ fn main() {
         "fp" => cmd_fp(&args[1..]),
         "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),
+        "big" => cmd_big(&args[1..]),
         "hash" => cmd_hash(&args[1..]),
         "b64" => cmd_b64(&args[1..]),
         other => {

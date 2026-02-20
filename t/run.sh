@@ -130,6 +130,15 @@ else
     no "the fingerprint comparison did not see both kinds"
 fi
 
+note "the bignum, against python's integers"
+out=$(python3 "$HERE/bigcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^[0-9]* compared, 0 differ$'; then
+    ok "every bignum operation agrees with python"
+else
+    no "a bignum operation disagrees with python"
+fi
+
 note "key fields, against ssh-keygen -l and a python parse"
 out=$(python3 "$HERE/fieldcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
