@@ -21,6 +21,8 @@ mod key;
 mod pem;
 mod privkey;
 mod privshow;
+mod rsa;
+mod sig;
 mod wire;
 
 use std::io::{Read, Write};
@@ -32,6 +34,7 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
                   is each certificate in its window, and for how long
   authorises NAME [FILE...]
                   does each certificate authorise NAME
+  verify [FILE...]  check the CA signature over each certificate
   priv [FILE...]  the private key container header, without decrypting
   show [FILE...]  certificate fields, the block ssh-keygen -L prints
   fp [-E HASH] [FILE...]
@@ -217,6 +220,63 @@ fn cmd_authorises(args: &[String]) -> i32 {
             Err(e) => {
                 eprintln!("sshkeyv: {}", e);
                 code = 1;
+            }
+        }
+    }
+    code
+}
+
+fn cmd_verify(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    // The worst outcome wins and the order is deliberate: a file that will
+    // not parse is a louder fact than a bad signature in another file, and
+    // a missing verifier is louder than both, because it means the
+    // question was never asked.
+    let mut code = 0;
+    for path in args {
+        let (k, _subject) = match read_cert(path) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("sshkeyv: {}", e);
+                code = code.max(1);
+                continue;
+            }
+        };
+        let c = match cert::Cert::parse(&k.blob, k.algo) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("sshkeyv: {}: {}", path, e);
+                code = code.max(1);
+                continue;
+            }
+        };
+        let (sa, ca) = match (c.signature_algo(), c.ca_algo()) {
+            (Ok(a), Ok(b)) => (a, b),
+            _ => {
+                eprintln!("sshkeyv: {}: the signature or CA key blob is \
+                           malformed", path);
+                code = code.max(1);
+                continue;
+            }
+        };
+        match sig::verify(c.signature_key, c.signature, c.tbs) {
+            sig::Outcome::Good => println!(
+                "{}: signature good, {} over {} bytes by the {} CA key",
+                path,
+                sa,
+                c.tbs.len(),
+                ca
+            ),
+            sig::Outcome::Bad(why) => {
+                println!("{}: SIGNATURE BAD: {}", path, why);
+                code = code.max(3);
+            }
+            sig::Outcome::NoVerifier(why) => {
+                println!("{}: NO VERIFIER: {}", path, why);
+                code = code.max(5);
             }
         }
     }
@@ -482,6 +542,7 @@ fn main() {
     let code = match args[0].as_str() {
         "valid" => cmd_valid(&args[1..]),
         "authorises" => cmd_authorises(&args[1..]),
+        "verify" => cmd_verify(&args[1..]),
         "priv" => cmd_priv(&args[1..]),
         "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),

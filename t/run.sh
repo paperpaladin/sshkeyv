@@ -190,6 +190,31 @@ else
     no "the container header or private section disagrees with an oracle"
 fi
 
+note "certificate CA signatures, against openssl"
+out=$(python3 "$HERE/sigcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if echo "$out" | grep -q '^[0-9]* compared, [0-9]* agree, 0 differ, '; then
+    ok "sshkeyv and openssl agree on every signature either can judge"
+else
+    no "sshkeyv and openssl disagree about a signature"
+fi
+if echo "$out" | grep -q '^[0-9]* corruptions, [0-9]* refused, 0 accepted$'; then
+    ok "every one-bit corruption is refused"
+else
+    no "a one-bit corruption was accepted"
+fi
+nv=$(echo "$out" | sed -n 's/.*0 differ, \([0-9]*\) no verifier.*/\1/p')
+if [ "${nv:-1}" -eq 0 ]; then
+    ok "every certificate in the corpus has a verifier"
+else
+    echo "    OUTSTANDING: $nv certificates have no verifier in sshkeyv yet;" \
+         "they exit 5, which is counted apart from a bad signature"
+fi
+# rc is not the gate here while OUTSTANDING holds: the script exits
+# non-zero for a corpus gap or an undriveable oracle too, and those are
+# asserted on by the lines above.
+: "$rc"
+
 note "malformed key lines, with ssh-keygen as the authority on malformed"
 out=$(python3 "$HERE/refusecmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

@@ -208,12 +208,12 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: RSA needs it and nothing in std has it.
 - [x] modular exponentiation, against `openssl` and python's pow
   why: the one operation RSA verification is.
-- [ ] RSA PKCS#1 v1.5 verification, with the DigestInfo prefix checked
+- [x] RSA PKCS#1 v1.5 verification, with the DigestInfo prefix checked
       rather than searched for
   why: a verifier that looks for the digest anywhere in the padding accepts
   Bleichenbacher's forgery. The check is on the exact bytes of the whole
   padded block.
-- [ ] RSA against `openssl dgst -verify` over the same signed blob, for
+- [x] RSA against `openssl dgst -verify` over the same signed blob, for
       rsa-sha2-256, rsa-sha2-512 and ssh-rsa
   why: three signature algorithms over one key type, and openssl does the
   maths with no OpenSSH in the path.
@@ -228,14 +228,14 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       an S value at or above the group order
   why: these are the cases a verifier written from the equation alone gets
   wrong, and each of them is a signature that must not verify.
-- [ ] certificate signature verification wired to the key types, exit 3 on
+- [x] certificate signature verification wired to the key types, exit 3 on
       failure
   why: the invariant. Up to here the pieces exist and nothing joins them.
-- [ ] single-bit corruption of every signature in the corpus, every one
+- [x] single-bit corruption of every signature in the corpus, every one
       refused with exit 3
   why: the hard invariant, measured rather than asserted. Counted as
   refusals, never mixed into the disagreement count.
-- [ ] corruption of the certificate body rather than the signature
+- [x] corruption of the certificate body rather than the signature
   why: a verifier that hashes the wrong range passes the first test and
   fails this one.
 - [ ] SSHSIG parse: the magic, version, namespace, reserved, hash

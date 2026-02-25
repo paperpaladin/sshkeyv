@@ -27,7 +27,18 @@ BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 def sshstr(b, o):
+    # The length check is not decoration. Python slicing past the end
+    # returns a short slice silently, so without it a corrupted length
+    # field reads as the same bytes as the original and this script tells
+    # you openssl accepted a corruption it never saw. That happened once,
+    # on the P-521 certificate, where a flipped bit in a length prefix
+    # read back as the same 66-byte value.
+    if len(b) - o < 4:
+        raise ValueError("no room for a length at %d" % o)
     (n,) = struct.unpack(">I", b[o:o + 4])
+    if len(b) - o - 4 < n:
+        raise ValueError("string at %d claims %d bytes, %d left"
+                         % (o, n, len(b) - o - 4))
     return b[o + 4:o + 4 + n], o + 4 + n
 
 
