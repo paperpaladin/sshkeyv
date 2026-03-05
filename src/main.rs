@@ -12,6 +12,7 @@ mod ask;
 mod b64;
 mod bignum;
 mod cert;
+mod ed25519;
 mod fields;
 mod fp;
 mod hash;

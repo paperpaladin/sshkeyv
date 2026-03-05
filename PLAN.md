@@ -217,14 +217,14 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       rsa-sha2-256, rsa-sha2-512 and ssh-rsa
   why: three signature algorithms over one key type, and openssl does the
   maths with no OpenSSH in the path.
-- [ ] Ed25519 field arithmetic over 2^255-19
+- [x] Ed25519 field arithmetic over 2^255-19
   why: the verification equation needs inversion and a square root, and
   both are exponentiations with curve-specific exponents.
-- [ ] Ed25519 point decompression, scalar multiplication and the
+- [x] Ed25519 point decompression, scalar multiplication and the
       verification equation, against `openssl pkeyutl -verify -rawin`
   why: the default key type, and openssl will check it given a hand-built
   SubjectPublicKeyInfo.
-- [ ] Ed25519 refusals: a non-canonical encoding, a point not on the curve,
+- [x] Ed25519 refusals: a non-canonical encoding, a point not on the curve,
       an S value at or above the group order
   why: these are the cases a verifier written from the equation alone gets
   wrong, and each of them is a signature that must not verify.

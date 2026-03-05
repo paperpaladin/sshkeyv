@@ -215,6 +215,16 @@ fi
 # asserted on by the lines above.
 : "$rc"
 
+note "Ed25519 signatures that must not verify"
+out=$(python3 "$HERE/edcases.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* cases, [0-9]* refused, 0 wrong, 0 wrong reason, 0 oracle differs$'; then
+    ok "every non-canonical Ed25519 encoding is refused, with the right reason"
+else
+    no "a non-canonical Ed25519 encoding was accepted or refused for the wrong reason"
+fi
+
 note "malformed key lines, with ssh-keygen as the authority on malformed"
 out=$(python3 "$HERE/refusecmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

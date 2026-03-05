@@ -72,9 +72,12 @@ pub fn verify(key_blob: &[u8], sig_blob: &[u8], msg: &[u8]) -> Outcome {
                 Err(e) => Outcome::Bad(e),
             }
         }
-        (Material::Ed25519 { .. }, "ssh-ed25519") => Outcome::NoVerifier(
-            "ed25519 verification is not written yet".to_string(),
-        ),
+        (Material::Ed25519 { pk }, "ssh-ed25519") => {
+            match crate::ed25519::verify(pk, msg, raw) {
+                Ok(()) => Outcome::Good,
+                Err(e) => Outcome::Bad(e),
+            }
+        }
         (Material::Ecdsa { curve, .. }, name)
             if name == format!("ecdsa-sha2-{}", curve.name()) =>
         {
