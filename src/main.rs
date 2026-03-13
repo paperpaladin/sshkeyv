@@ -12,6 +12,7 @@ mod ask;
 mod b64;
 mod bignum;
 mod cert;
+mod ecdsa;
 mod ed25519;
 mod fields;
 mod fp;
@@ -43,6 +44,7 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
+  curve NAME      the curve parameters sshkeyv holds, as hex
   big OP A B [M]  bignum arithmetic on hex arguments, for the suite
   hash ALG        hex digest of stdin: sha256, sha512, sha1 or md5
   b64 -d | -e     base64 between stdin and stdout, strictly
@@ -454,6 +456,43 @@ fn render(s: &[u8]) -> String {
 // a defect in the bignum shows up as "every signature is invalid", which
 // is indistinguishable from strictness. python's own integers are the
 // oracle.
+// The curve command exists for the suite. A mistyped curve constant does
+// not crash and does not produce a wrong answer: it produces a refusal
+// with a plausible message, which is the hardest kind of defect to see
+// from the outside. Writing the P-521 group order with one hex digit
+// missing divided it by sixteen and every P-521 signature was then
+// reported as having an r or s above the group order.
+fn cmd_curve(args: &[String]) -> i32 {
+    let name = match args.first() {
+        Some(n) => n.as_str(),
+        None => {
+            eprint!("{}", USAGE);
+            return 2;
+        }
+    };
+    let c = match key::Curve::from_name(name) {
+        Some(c) => c,
+        None => {
+            eprintln!("sshkeyv: unknown curve {}", name);
+            return 2;
+        }
+    };
+    let pr = ecdsa::params(c);
+    let w = pr.bytes;
+    let put = |label: &str, n: &bignum::Nat| {
+        println!("{}\t{}\t{}", name, label, fields::hex(&n.to_be(w).unwrap()))
+    };
+    println!("{}\tbytes\t{}", name, w);
+    println!("{}\tfield-bits\t{}", name, pr.p.bits());
+    println!("{}\torder-bits\t{}", name, pr.n.bits());
+    put("p", &pr.p);
+    put("n", &pr.n);
+    put("b", &pr.b);
+    put("gx", &pr.gx);
+    put("gy", &pr.gy);
+    0
+}
+
 fn cmd_big(args: &[String]) -> i32 {
     let hex = |s: &String| -> Option<bignum::Nat> {
         let mut b = Vec::with_capacity((s.len() + 1) / 2);
@@ -549,6 +588,7 @@ fn main() {
         "fp" => cmd_fp(&args[1..]),
         "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),
+        "curve" => cmd_curve(&args[1..]),
         "big" => cmd_big(&args[1..]),
         "hash" => cmd_hash(&args[1..]),
         "b64" => cmd_b64(&args[1..]),

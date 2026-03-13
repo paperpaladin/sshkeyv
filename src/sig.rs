@@ -78,12 +78,28 @@ pub fn verify(key_blob: &[u8], sig_blob: &[u8], msg: &[u8]) -> Outcome {
                 Err(e) => Outcome::Bad(e),
             }
         }
-        (Material::Ecdsa { curve, .. }, name)
+        (Material::Ecdsa { curve, point }, name)
             if name == format!("ecdsa-sha2-{}", curve.name()) =>
         {
-            Outcome::NoVerifier(
-                "ECDSA verification is not written yet".to_string(),
-            )
+            // The SSH ECDSA signature is a string holding two mpints,
+            // which is a second layer of wire format inside the signature
+            // blob.
+            let mut rr = Reader::new(raw, "ecdsa signature");
+            let (r, s) = match (rr.mpint_nc(), rr.mpint_nc()) {
+                (Ok((r, _)), Ok((s, _))) => (r, s),
+                _ => {
+                    return Outcome::Bad(
+                        "the ECDSA signature is not two mpints".to_string(),
+                    )
+                }
+            };
+            if let Err(e) = rr.end() {
+                return Outcome::Bad(e);
+            }
+            match crate::ecdsa::verify(*curve, point, r, s, msg) {
+                Ok(()) => Outcome::Good,
+                Err(e) => Outcome::Bad(e),
+            }
         }
         _ => Outcome::Bad(format!(
             "a {} signature does not go with a {} key",

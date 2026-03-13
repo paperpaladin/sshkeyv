@@ -203,17 +203,35 @@ if echo "$out" | grep -q '^[0-9]* corruptions, [0-9]* refused, 0 accepted$'; the
 else
     no "a one-bit corruption was accepted"
 fi
-nv=$(echo "$out" | sed -n 's/.*0 differ, \([0-9]*\) no verifier.*/\1/p')
-if [ "${nv:-1}" -eq 0 ]; then
+if echo "$out" | grep -q '0 differ, 0 no verifier,'; then
     ok "every certificate in the corpus has a verifier"
 else
-    echo "    OUTSTANDING: $nv certificates have no verifier in sshkeyv yet;" \
-         "they exit 5, which is counted apart from a bad signature"
+    no "some certificate in the corpus has no verifier, exit 5"
 fi
-# rc is not the gate here while OUTSTANDING holds: the script exits
-# non-zero for a corpus gap or an undriveable oracle too, and those are
-# asserted on by the lines above.
-: "$rc"
+if [ $rc -eq 0 ]; then
+    ok "the signature comparison found no corpus gap and drove every oracle"
+else
+    no "the signature comparison reported a corpus gap or an oracle it could not drive"
+fi
+
+note "the NIST curve constants, against the formulas they come from"
+out=$(python3 "$HERE/curvecmp.py" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^[0-9]* compared, 0 differ$'; then
+    ok "every curve constant checks out, including n G being the identity"
+else
+    no "a curve constant is wrong"
+fi
+
+note "ECDSA signatures and keys that must not verify"
+out=$(python3 "$HERE/eccases.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* cases, [0-9]* refused, 0 wrong$'; then
+    ok "every bad ECDSA signature or key is refused, with the right reason"
+else
+    no "a bad ECDSA signature or key was accepted or misdiagnosed"
+fi
 
 note "Ed25519 signatures that must not verify"
 out=$(python3 "$HERE/edcases.py" "$C" 2>&1); rc=$?

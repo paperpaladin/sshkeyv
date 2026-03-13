@@ -53,6 +53,7 @@ unset P1 P2
 kg -t ed25519 -N '' -C 'ca ed25519'   -f ca_ed25519
 kg -t rsa -b 2048 -N '' -C 'ca rsa'   -f ca_rsa
 kg -t ecdsa -b 256 -N '' -C 'ca p256' -f ca_p256
+kg -t ecdsa -b 384 -N '' -C 'ca p384' -f ca_p384
 kg -t ecdsa -b 521 -N '' -C 'ca p521' -f ca_p521
 
 # ---- certificates ------------------------------------------------------
@@ -71,6 +72,7 @@ cert user_ed    ca_ed25519 ed25519   -I user_alice -n alice,bob -z 12345 \
                                      -V '-1h:+52w'
 cert user_rsa   ca_rsa     ed25519   -I user_from_rsa_ca -n alice -z 1
 cert user_p256  ca_p256    ed25519   -I user_from_p256_ca -n alice
+cert user_p384  ca_p384    ed25519   -I user_from_p384_ca -n alice
 cert user_p521  ca_p521    ed25519   -I user_from_p521_ca -n alice
 cert rsa_sha1   ca_rsa     ed25519   -t ssh-rsa -I sig_ssh_rsa -n alice
 cert rsa_sha256 ca_rsa     ed25519   -t rsa-sha2-256 -I sig_rsa_sha2_256 -n alice

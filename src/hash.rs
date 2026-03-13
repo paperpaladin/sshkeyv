@@ -117,16 +117,44 @@ const K512: [u64; 80] = [
 ];
 
 pub fn sha512(data: &[u8]) -> [u8; 64] {
-    let mut h: [u64; 8] = [
-        0x6a09e667f3bcc908,
-        0xbb67ae8584caa73b,
-        0x3c6ef372fe94f82b,
-        0xa54ff53a5f1d36f1,
-        0x510e527fade682d1,
-        0x9b05688c2b3e6c1f,
-        0x1f83d9abfb41bd6b,
-        0x5be0cd19137e2179,
-    ];
+    let mut out = [0u8; 64];
+    out.copy_from_slice(&sha512_core(data, IV512));
+    out
+}
+
+/// SHA-384 is SHA-512 with a different initial state, truncated to its
+/// first 48 bytes. ECDSA over P-384 names it, which is the only reason it
+/// is here.
+pub fn sha384(data: &[u8]) -> [u8; 48] {
+    let mut out = [0u8; 48];
+    out.copy_from_slice(&sha512_core(data, IV384)[..48]);
+    out
+}
+
+const IV512: [u64; 8] = [
+    0x6a09e667f3bcc908,
+    0xbb67ae8584caa73b,
+    0x3c6ef372fe94f82b,
+    0xa54ff53a5f1d36f1,
+    0x510e527fade682d1,
+    0x9b05688c2b3e6c1f,
+    0x1f83d9abfb41bd6b,
+    0x5be0cd19137e2179,
+];
+
+const IV384: [u64; 8] = [
+    0xcbbb9d5dc1059ed8,
+    0x629a292a367cd507,
+    0x9159015a3070dd17,
+    0x152fecd8f70e5939,
+    0x67332667ffc00b31,
+    0x8eb44a8768581511,
+    0xdb0c2e0d64f98fa7,
+    0x47b5481dbefa4fa4,
+];
+
+fn sha512_core(data: &[u8], iv: [u64; 8]) -> [u8; 64] {
+    let mut h: [u64; 8] = iv;
     for block in pad(data, 128, 16).chunks(128) {
         let mut w = [0u64; 80];
         for i in 0..16 {

@@ -246,13 +246,13 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       openssl, including a wrong namespace and a wrong message
   why: the namespace is in the signed blob, so a verifier that ignores it
   accepts a signature made for another purpose.
-- [ ] NIST P-256 field and curve arithmetic
+- [x] NIST P-256 field and curve arithmetic
   why: ecdsa-sha2-nistp256 is the second commonest key type in deployment.
-- [ ] ECDSA verification for P-256, P-384 and P-521, against `openssl dgst
+- [x] ECDSA verification for P-256, P-384 and P-521, against `openssl dgst
       -verify` with the SSH (r,s) pair re-encoded as a DER Ecdsa-Sig-Value
   why: P-521 is the one with a bit length that is not a byte multiple, so
   it is where the padding rules show.
-- [ ] ECDSA refusals: r or s zero, r or s at or above the group order, a
+- [x] ECDSA refusals: r or s zero, r or s at or above the group order, a
       point not on the curve
   why: same class as the Ed25519 refusals, different arithmetic.
 - [ ] `sshkeyv sshd-ext --version N`: which extensions and critical options
