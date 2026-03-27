@@ -18,6 +18,7 @@ mod fields;
 mod fp;
 mod hash;
 mod show;
+mod sshsig;
 mod time;
 mod key;
 mod pem;
@@ -37,6 +38,9 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
   authorises NAME [FILE...]
                   does each certificate authorise NAME
   verify [FILE...]  check the CA signature over each certificate
+  sigverify -s SIGFILE -n NAMESPACE [--key FILE] [MSGFILE]
+                  check a detached SSHSIG signature; the message comes
+                  from MSGFILE or from stdin
   priv [FILE...]  the private key container header, without decrypting
   show [FILE...]  certificate fields, the block ssh-keygen -L prints
   fp [-E HASH] [FILE...]
@@ -227,6 +231,157 @@ fn cmd_authorises(args: &[String]) -> i32 {
         }
     }
     code
+}
+
+fn cmd_sigverify(args: &[String]) -> i32 {
+    let mut sigfile: Option<&String> = None;
+    let mut namespace: Option<&String> = None;
+    let mut keyfile: Option<&String> = None;
+    let mut msgfile: Option<&String> = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "-s" => sigfile = it.next(),
+            "-n" => namespace = it.next(),
+            "--key" => keyfile = it.next(),
+            other if other.starts_with('-') => {
+                eprintln!("sshkeyv: unknown option {}", other);
+                return 2;
+            }
+            _ => msgfile = Some(a),
+        }
+    }
+    let (sigfile, namespace) = match (sigfile, namespace) {
+        (Some(s), Some(n)) => (s, n),
+        _ => {
+            eprintln!("sshkeyv: sigverify wants -s SIGFILE and -n NAMESPACE");
+            return 2;
+        }
+    };
+    let text = match std::fs::read_to_string(sigfile) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("sshkeyv: {}: {}", sigfile, e);
+            return 1;
+        }
+    };
+    let pem = match pem::parse(&text) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("sshkeyv: {}: {}", sigfile, e);
+            return 1;
+        }
+    };
+    if pem.label != "SSH SIGNATURE" {
+        eprintln!(
+            "sshkeyv: {}: the PEM label is {:?}, not SSH SIGNATURE",
+            sigfile, pem.label
+        );
+        return 1;
+    }
+    let s = match sshsig::Sshsig::parse(&pem.body) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("sshkeyv: {}: {}", sigfile, e);
+            return 1;
+        }
+    };
+    let msg = match msgfile {
+        Some(p) => match std::fs::read(p) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("sshkeyv: {}: {}", p, e);
+                return 1;
+            }
+        },
+        None => read_stdin(),
+    };
+
+    println!("{}: version {}", sigfile, s.version);
+    println!("{}: namespace in the file {}", sigfile, s.namespace);
+    println!("{}: hash algorithm {}", sigfile, s.hash_algorithm);
+    println!(
+        "{}: signer {}",
+        sigfile,
+        fp::digest(fp::Kind::Sha256, s.public_key)
+    );
+
+    // The namespace must be the one asked for. It is inside the signed
+    // blob, so a verifier that takes it from the file and signs over what
+    // it took accepts a signature made for any purpose.
+    if s.namespace != namespace.as_str() {
+        println!(
+            "{}: NAMESPACE MISMATCH: the file says {} and {} was asked for",
+            sigfile, s.namespace, namespace
+        );
+        return 3;
+    }
+    // An explicitly named key must be the signer. Without --key the
+    // signature is only checked against the key it names, which proves the
+    // file is self-consistent and nothing about who wrote it. That is what
+    // ssh-keygen -Y check-novalidate does and it says so too.
+    if let Some(kf) = keyfile {
+        let line = match first_line(kf) {
+            Ok(l) => l,
+            Err(e) => {
+                eprintln!("sshkeyv: {}", e);
+                return 1;
+            }
+        };
+        let k = match key::PublicKey::parse_line(&line) {
+            Ok(k) => k,
+            Err(e) => {
+                eprintln!("sshkeyv: {}: {}", kf, e);
+                return 1;
+            }
+        };
+        let want = match k.subject_blob() {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("sshkeyv: {}: {}", kf, e);
+                return 1;
+            }
+        };
+        if want != s.public_key {
+            println!(
+                "{}: SIGNER MISMATCH: the file was signed by {} and {} holds {}",
+                sigfile,
+                fp::digest(fp::Kind::Sha256, s.public_key),
+                kf,
+                fp::digest(fp::Kind::Sha256, &want)
+            );
+            return 3;
+        }
+    } else {
+        println!(
+            "{}: no --key given, so this checks the file against the key it \
+             names and says nothing about who signed it",
+            sigfile
+        );
+    }
+
+    let blob = match s.signed_blob(&msg) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("sshkeyv: {}: {}", sigfile, e);
+            return 1;
+        }
+    };
+    match sig::verify(s.public_key, s.signature, &blob) {
+        sig::Outcome::Good => {
+            println!("{}: signature good over {} bytes of message",
+                     sigfile, msg.len());
+            0
+        }
+        sig::Outcome::Bad(why) => {
+            println!("{}: SIGNATURE BAD: {}", sigfile, why);
+            3
+        }
+        sig::Outcome::NoVerifier(why) => {
+            println!("{}: NO VERIFIER: {}", sigfile, why);
+            5
+        }
+    }
 }
 
 fn cmd_verify(args: &[String]) -> i32 {
@@ -583,6 +738,7 @@ fn main() {
         "valid" => cmd_valid(&args[1..]),
         "authorises" => cmd_authorises(&args[1..]),
         "verify" => cmd_verify(&args[1..]),
+        "sigverify" => cmd_sigverify(&args[1..]),
         "priv" => cmd_priv(&args[1..]),
         "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),

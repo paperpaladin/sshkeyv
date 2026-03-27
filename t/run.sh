@@ -214,6 +214,16 @@ else
     no "the signature comparison reported a corpus gap or an oracle it could not drive"
 fi
 
+note "detached SSHSIG signatures, against ssh-keygen -Y verify and openssl"
+out=$(python3 "$HERE/sshsigcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* compared, [0-9]* agree, 0 differ, [0-9]* refused by all$'; then
+    ok "every detached signature verdict matches ssh-keygen and openssl"
+else
+    no "a detached signature verdict disagrees with an oracle"
+fi
+
 note "the NIST curve constants, against the formulas they come from"
 out=$(python3 "$HERE/curvecmp.py" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

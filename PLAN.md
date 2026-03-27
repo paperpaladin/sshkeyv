@@ -238,11 +238,11 @@ reduced run would print a row of passes having compared sshkeyv with itself.
 - [x] corruption of the certificate body rather than the signature
   why: a verifier that hashes the wrong range passes the first test and
   fails this one.
-- [ ] SSHSIG parse: the magic, version, namespace, reserved, hash
+- [x] SSHSIG parse: the magic, version, namespace, reserved, hash
       algorithm, and the signed blob construction
   why: `ssh-keygen -Y sign` gives a second signature format over data we
   choose, so the verifier gets tested on something other than certificates.
-- [ ] SSHSIG verification against `ssh-keygen -Y verify` and against
+- [x] SSHSIG verification against `ssh-keygen -Y verify` and against
       openssl, including a wrong namespace and a wrong message
   why: the namespace is in the signed blob, so a verifier that ignores it
   accepts a signature made for another purpose.
