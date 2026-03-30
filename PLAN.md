@@ -138,16 +138,16 @@ reduced run would print a row of passes having compared sshkeyv with itself.
 - [x] `sshkeyv fields`: the parsed key as tab-separated name and value
   why: t/wire.py arrived with the wire reader and compares the generic
   string walk; fields is the same idea once the key types are known.
-- [ ] RFC4716 writer, against `ssh-keygen -e`, and reader, against
+- [x] RFC4716 writer, against `ssh-keygen -e`, and reader, against
       `ssh-keygen -i`
   why: a second encoding of the same key, which gives the two formats
   something to disagree about. The wrapped-line and continuation rules are
   where a hand-written reader breaks.
-- [ ] PKCS8 SubjectPublicKeyInfo writer for RSA and ECDSA, against
+- [x] PKCS8 SubjectPublicKeyInfo writer for RSA and ECDSA, against
       `ssh-keygen -e -m pkcs8` byte for byte
   why: DER with an integer encoding and an OID, written from scratch, and
   the oracle gives the exact bytes.
-- [ ] PKCS8 reader, so `convert` round trips, against `ssh-keygen -i -m pkcs8`
+- [x] PKCS8 reader, so `convert` round trips, against `ssh-keygen -i -m pkcs8`
   why: the reverse direction fails differently; a DER length read as
   short-form where it is long-form is the classic.
 - [x] PEM armour reader: the BEGIN and END lines, the base64 body, the

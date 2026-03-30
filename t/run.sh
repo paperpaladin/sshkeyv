@@ -214,6 +214,16 @@ else
     no "the signature comparison reported a corpus gap or an oracle it could not drive"
 fi
 
+note "RFC 4716 and PKCS8, both directions"
+out=$(python3 "$HERE/convertcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* compared, 0 differ, 0 refused; .* 0 under-refused$'; then
+    ok "both containers round trip and the PKCS8 bytes are ssh-keygen's"
+else
+    no "a container conversion disagrees with ssh-keygen or openssl"
+fi
+
 note "detached SSHSIG signatures, against ssh-keygen -Y verify and openssl"
 out=$(python3 "$HERE/sshsigcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

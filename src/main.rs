@@ -12,6 +12,8 @@ mod ask;
 mod b64;
 mod bignum;
 mod cert;
+mod convert;
+mod der;
 mod ecdsa;
 mod ed25519;
 mod fields;
@@ -45,6 +47,8 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
   show [FILE...]  certificate fields, the block ssh-keygen -L prints
   fp [-E HASH] [FILE...]
                   fingerprints, the line ssh-keygen -l prints
+  convert -m FORMAT FILE
+                  re-encode a public key as rfc4716, pkcs8 or openssh
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
@@ -530,6 +534,107 @@ fn cmd_fp(args: &[String]) -> i32 {
     code
 }
 
+/// Read a public key from any of the three containers, detected from the
+/// bytes rather than from the name.
+fn read_any_pubkey(path: &str) -> Result<key::PublicKey, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("{}: {}", path, e))?;
+    let trimmed = text.trim_start();
+    if trimmed.starts_with("---- BEGIN SSH2 PUBLIC KEY ----") {
+        let (blob, comment) = convert::from_rfc4716(&text)
+            .map_err(|e| format!("{}: {}", path, e))?;
+        let line = format!(
+            "{} {}{}",
+            {
+                let mut r = wire::Reader::new(&blob, "rfc4716 blob");
+                r.text().map_err(|e| format!("{}: {}", path, e))?.to_string()
+            },
+            b64::encode(&blob),
+            match &comment {
+                Some(c) => format!(" {}", c),
+                None => String::new(),
+            }
+        );
+        return key::PublicKey::parse_line(&line)
+            .map_err(|e| format!("{}: {}", path, e));
+    }
+    if trimmed.starts_with("-----BEGIN PUBLIC KEY-----") {
+        let p = pem::parse(&text).map_err(|e| format!("{}: {}", path, e))?;
+        if p.label != "PUBLIC KEY" {
+            return Err(format!("{}: the PEM label is {:?}", path, p.label));
+        }
+        let blob = convert::from_spki(&p.body)
+            .map_err(|e| format!("{}: {}", path, e))?;
+        let name = {
+            let mut r = wire::Reader::new(&blob, "spki blob");
+            r.text().map_err(|e| format!("{}: {}", path, e))?.to_string()
+        };
+        let line = format!("{} {}", name, b64::encode(&blob));
+        return key::PublicKey::parse_line(&line)
+            .map_err(|e| format!("{}: {}", path, e));
+    }
+    key::PublicKey::parse_line(&first_line(path)?)
+}
+
+fn cmd_convert(args: &[String]) -> i32 {
+    let mut format: Option<&String> = None;
+    let mut path: Option<&String> = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "-m" {
+            format = it.next();
+        } else {
+            path = Some(a);
+        }
+    }
+    let (format, path) = match (format, path) {
+        (Some(f), Some(p)) => (f, p),
+        _ => {
+            eprintln!("sshkeyv: convert wants -m FORMAT and a file");
+            return 2;
+        }
+    };
+    let k = match read_any_pubkey(path) {
+        Ok(k) => k,
+        Err(e) => {
+            eprintln!("sshkeyv: {}", e);
+            return 1;
+        }
+    };
+    match format.as_str() {
+        "rfc4716" => print!("{}", convert::rfc4716(&k)),
+        "pkcs8" => {
+            let m = match k.material() {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("sshkeyv: {}: {}", path, e);
+                    return 1;
+                }
+            };
+            print!("{}", convert::pkcs8_pem(&convert::spki(&m)));
+        }
+        "openssh" => {
+            println!(
+                "{} {}{}",
+                k.algo.name,
+                b64::encode(&k.blob),
+                match &k.comment {
+                    Some(c) => format!(" {}", c),
+                    None => String::new(),
+                }
+            );
+        }
+        other => {
+            eprintln!(
+                "sshkeyv: unknown format {}; want rfc4716, pkcs8 or openssh",
+                other
+            );
+            return 2;
+        }
+    }
+    0
+}
+
 fn cmd_fields(args: &[String]) -> i32 {
     if args.is_empty() {
         eprint!("{}", USAGE);
@@ -742,6 +847,7 @@ fn main() {
         "priv" => cmd_priv(&args[1..]),
         "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),
+        "convert" => cmd_convert(&args[1..]),
         "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),
         "curve" => cmd_curve(&args[1..]),
