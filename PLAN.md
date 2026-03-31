@@ -199,7 +199,7 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       the host versus user certificate distinction
   why: an empty list authorises everyone, which is the single most
   surprising rule in the format.
-- [ ] `sshkeyv counts`: every construct in the corpus counted and printed
+- [x] `sshkeyv counts`: every construct in the corpus counted and printed
   why: a critical-options test over a corpus with no critical options
   passes having done nothing. The counts are the guard against that and
   the suite asserts each one is non-zero.

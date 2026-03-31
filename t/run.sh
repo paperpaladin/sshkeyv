@@ -214,6 +214,16 @@ else
     no "the signature comparison reported a corpus gap or an oracle it could not drive"
 fi
 
+note "construct counts, and the constructs the suite depends on"
+out=$(python3 "$HERE/countcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* cross-checked, 0 differ, 0 required constructs missing$'; then
+    ok "every construct the comparisons depend on is present in the corpus"
+else
+    no "a construct is missing from the corpus or counted wrongly"
+fi
+
 note "RFC 4716 and PKCS8, both directions"
 out=$(python3 "$HERE/convertcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

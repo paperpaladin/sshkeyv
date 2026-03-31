@@ -13,6 +13,7 @@ mod b64;
 mod bignum;
 mod cert;
 mod convert;
+mod counts;
 mod der;
 mod ecdsa;
 mod ed25519;
@@ -49,6 +50,7 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
                   fingerprints, the line ssh-keygen -l prints
   convert -m FORMAT FILE
                   re-encode a public key as rfc4716, pkcs8 or openssh
+  counts [FILE...]  how many of each construct the files hold
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
@@ -576,6 +578,22 @@ fn read_any_pubkey(path: &str) -> Result<key::PublicKey, String> {
     key::PublicKey::parse_line(&first_line(path)?)
 }
 
+fn cmd_counts(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let now = time::now();
+    let mut c = counts::Counts::default();
+    for path in args {
+        c.add_file(path, now);
+    }
+    for (k, v) in &c.n {
+        println!("{}\t{}", k, v);
+    }
+    0
+}
+
 fn cmd_convert(args: &[String]) -> i32 {
     let mut format: Option<&String> = None;
     let mut path: Option<&String> = None;
@@ -847,6 +865,7 @@ fn main() {
         "priv" => cmd_priv(&args[1..]),
         "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),
+        "counts" => cmd_counts(&args[1..]),
         "convert" => cmd_convert(&args[1..]),
         "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),
