@@ -50,6 +50,7 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
                   fingerprints, the line ssh-keygen -l prints
   convert -m FORMAT FILE
                   re-encode a public key as rfc4716, pkcs8 or openssh
+  check [FILE...]   parse each file fully; print ok or the refusal
   counts [FILE...]  how many of each construct the files hold
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
@@ -576,6 +577,115 @@ fn read_any_pubkey(path: &str) -> Result<key::PublicKey, String> {
             .map_err(|e| format!("{}: {}", path, e));
     }
     key::PublicKey::parse_line(&first_line(path)?)
+        .map_err(|e| format!("{}: {}", path, e))
+}
+
+/// Parse a file as far as its container allows and return a one-line
+/// description, or the reason it will not parse. Everything that can be
+/// read is read: a certificate's options lists, a private container's
+/// section when it is not encrypted, an SSHSIG's fields. Reading only the
+/// outer layer and reporting ok is how a check command comes to pass on a
+/// file nothing else can use.
+fn check_one(path: &str) -> Result<String, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("{}: {}", path, e))?;
+    let trimmed = text.trim_start();
+    if trimmed.starts_with(concat!("-----BEGIN OPENSSH ", "PRIVATE KEY-----")) {
+        let p = pem::parse(&text).map_err(|e| format!("{}: {}", path, e))?;
+        let c = privkey::Container::parse(&p.body)
+            .map_err(|e| format!("{}: {}", path, e))?;
+        if c.encrypted() {
+            return Ok(format!(
+                "{}: ok, OpenSSH private key, {} with {} at {} rounds, the \
+                 private section not parsed because it is encrypted",
+                path,
+                c.cipher,
+                c.kdf,
+                c.rounds.unwrap_or(0)
+            ));
+        }
+        let block = privkey::cipher_block(c.cipher).unwrap_or(8);
+        let pv = privkey::Private::parse(c.private, block)
+            .map_err(|e| format!("{}: {}", path, e))?;
+        if pv.public != c.public[0] {
+            return Err(format!(
+                "{}: the two copies of the public key disagree",
+                path
+            ));
+        }
+        return Ok(format!(
+            "{}: ok, OpenSSH private key, {}, unencrypted",
+            path, pv.keytype
+        ));
+    }
+    if trimmed.starts_with("-----BEGIN SSH SIGNATURE-----") {
+        let p = pem::parse(&text).map_err(|e| format!("{}: {}", path, e))?;
+        let s = sshsig::Sshsig::parse(&p.body)
+            .map_err(|e| format!("{}: {}", path, e))?;
+        // The signed blob construction is part of the parse: it is where
+        // an unknown hash algorithm shows up.
+        s.signed_blob(b"")
+            .map_err(|e| format!("{}: {}", path, e))?;
+        return Ok(format!(
+            "{}: ok, SSHSIG version {}, namespace {}, hash {}",
+            path, s.version, s.namespace, s.hash_algorithm
+        ));
+    }
+    let k = read_any_pubkey(path)?;
+    let m = k.material().map_err(|e| format!("{}: {}", path, e))?;
+    if !k.algo.cert {
+        return Ok(format!(
+            "{}: ok, {} public key, {} bits",
+            path,
+            m.label(),
+            m.bits()
+        ));
+    }
+    let c = cert::Cert::parse(&k.blob, k.algo)
+        .map_err(|e| format!("{}: {}", path, e))?;
+    // Every option's data is read here even though nothing below uses it,
+    // because an option whose data is not a single string is a defect this
+    // command is the right place to find.
+    for (which, list) in [("critical option", &c.critical),
+                          ("extension", &c.extensions)] {
+        for o in list.iter() {
+            if let Some(Err(e)) = o.as_string() {
+                return Err(format!(
+                    "{}: the {} {} has data that is not a single string: {}",
+                    path, which, o.name, e
+                ));
+            }
+        }
+    }
+    Ok(format!(
+        "{}: ok, {} certificate for {}, {} principals, {} critical \
+         options, {} extensions, signed with {}",
+        path,
+        c.type_name(),
+        c.key_id,
+        c.principals.len(),
+        c.critical.len(),
+        c.extensions.len(),
+        c.signature_algo().map_err(|e| format!("{}: {}", path, e))?
+    ))
+}
+
+fn cmd_check(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let mut code = 0;
+    for path in args {
+        match check_one(path) {
+            Ok(line) => println!("{}", line),
+            Err(e) => {
+                println!("{}: REFUSED: {}", path, e);
+                code = 1;
+            }
+        }
+    }
+    code
 }
 
 fn cmd_counts(args: &[String]) -> i32 {
@@ -865,6 +975,7 @@ fn main() {
         "priv" => cmd_priv(&args[1..]),
         "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),
+        "check" => cmd_check(&args[1..]),
         "counts" => cmd_counts(&args[1..]),
         "convert" => cmd_convert(&args[1..]),
         "fields" => cmd_fields(&args[1..]),

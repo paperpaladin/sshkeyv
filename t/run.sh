@@ -214,6 +214,16 @@ else
     no "the signature comparison reported a corpus gap or an oracle it could not drive"
 fi
 
+note "sshkeyv check over every file, with ssh-keygen as the authority"
+out=$(sh "$HERE/checkcmp.sh" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* files, [0-9]* ok, [0-9]* refused by both, 0 over-refused, 0 under-refused$'; then
+    ok "check and ssh-keygen read and refuse the same files"
+else
+    no "check and ssh-keygen disagree about which files are readable"
+fi
+
 note "construct counts, and the constructs the suite depends on"
 out=$(python3 "$HERE/countcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
