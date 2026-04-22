@@ -255,6 +255,14 @@ reduced run would print a row of passes having compared sshkeyv with itself.
 - [x] ECDSA refusals: r or s zero, r or s at or above the group order, a
       point not on the curve
   why: same class as the Ed25519 refusals, different arithmetic.
+- [x] `sshkeyv verify --ca FILE`: the signer must be one of the keys given
+  why: the difference between a certificate that is internally consistent
+  and one issued by the CA you actually trust. Without it verify proves
+  only that the signature matches the key the certificate names, and a
+  certificate names its own CA.
+- [x] `sshkeyv check`: read every layer of every container and report
+  why: the command that would notice an option whose data is not a single
+  string, or a container whose two copies of the public key disagree.
 - [ ] `sshkeyv sshd-ext --version N`: which extensions and critical options
       a given sshd release would not understand
   why: the actual question behind a certificate that fails closed, and the

@@ -273,6 +273,16 @@ else
     no "a bad ECDSA signature or key was accepted or misdiagnosed"
 fi
 
+note "verify --ca: every certificate against every CA key in the corpus"
+out=$(sh "$HERE/cacmp.sh" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* pairs, [0-9]* accepted, [0-9]* rejected, 0 wrong$'; then
+    ok "each certificate is accepted by its own CA key and by no other"
+else
+    no "a certificate was accepted by the wrong CA key or rejected by its own"
+fi
+
 note "Ed25519 signatures that must not verify"
 out=$(python3 "$HERE/edcases.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

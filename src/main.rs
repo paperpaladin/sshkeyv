@@ -40,7 +40,9 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
                   is each certificate in its window, and for how long
   authorises NAME [FILE...]
                   does each certificate authorise NAME
-  verify [FILE...]  check the CA signature over each certificate
+  verify [--ca FILE]... [FILE...]
+                  check the CA signature over each certificate, and with
+                  --ca that the signer is one of the keys given
   sigverify -s SIGFILE -n NAMESPACE [--key FILE] [MSGFILE]
                   check a detached SSHSIG signature; the message comes
                   from MSGFILE or from stdin
@@ -392,9 +394,76 @@ fn cmd_sigverify(args: &[String]) -> i32 {
 }
 
 fn cmd_verify(args: &[String]) -> i32 {
+    // --ca is the difference between "this certificate is internally
+    // consistent" and "this certificate was issued by my CA". Without it,
+    // verify proves the signature matches the CA key the certificate
+    // names, and a certificate names its own CA, so anybody can mint one
+    // that verifies. That is the single most important thing about this
+    // command and it prints a line saying so when no --ca is given.
+    let mut trusted: Vec<Vec<u8>> = Vec::new();
+    let mut paths: Vec<&String> = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "--ca" {
+            let cafile = match it.next() {
+                Some(f) => f,
+                None => {
+                    eprintln!("sshkeyv: --ca wants a file");
+                    return 2;
+                }
+            };
+            // A CA file may hold several keys, one per line, which is how
+            // TrustedUserCAKeys is written.
+            let text = match std::fs::read_to_string(cafile) {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("sshkeyv: {}: {}", cafile, e);
+                    return 1;
+                }
+            };
+            let mut found = 0;
+            for line in text.lines() {
+                let l = line.trim();
+                if l.is_empty() || l.starts_with('#') {
+                    continue;
+                }
+                match key::PublicKey::parse_line(l) {
+                    Ok(k) => {
+                        if k.algo.cert {
+                            eprintln!(
+                                "sshkeyv: {}: a CA key must be a plain key, \
+                                 not a certificate",
+                                cafile
+                            );
+                            return 1;
+                        }
+                        trusted.push(k.blob);
+                        found += 1;
+                    }
+                    Err(e) => {
+                        eprintln!("sshkeyv: {}: {}", cafile, e);
+                        return 1;
+                    }
+                }
+            }
+            if found == 0 {
+                eprintln!("sshkeyv: {}: no keys in it", cafile);
+                return 1;
+            }
+        } else {
+            paths.push(a);
+        }
+    }
+    let args: Vec<&String> = paths;
     if args.is_empty() {
         eprint!("{}", USAGE);
         return 2;
+    }
+    if trusted.is_empty() {
+        println!(
+            "note: no --ca given, so this checks each certificate against \
+             the CA key it names itself and says nothing about who issued it"
+        );
     }
     // The worst outcome wins and the order is deliberate: a file that will
     // not parse is a louder fact than a bad signature in another file, and
@@ -428,13 +497,32 @@ fn cmd_verify(args: &[String]) -> i32 {
             }
         };
         match sig::verify(c.signature_key, c.signature, c.tbs) {
-            sig::Outcome::Good => println!(
-                "{}: signature good, {} over {} bytes by the {} CA key",
-                path,
-                sa,
-                c.tbs.len(),
-                ca
-            ),
+            sig::Outcome::Good => {
+                println!(
+                    "{}: signature good, {} over {} bytes by the {} CA key \
+                     {}",
+                    path,
+                    sa,
+                    c.tbs.len(),
+                    ca,
+                    fp::digest(fp::Kind::Sha256, c.signature_key)
+                );
+                // Trust is a separate answer from validity, so it gets a
+                // separate exit status: 4, the same one an expired
+                // certificate gets, because in both cases the file parsed
+                // and verified and the answer to the question is no.
+                if !trusted.is_empty()
+                    && !trusted.iter().any(|t| t == c.signature_key)
+                {
+                    println!(
+                        "{}: UNTRUSTED CA: the signer is not one of the {} \
+                         keys given with --ca",
+                        path,
+                        trusted.len()
+                    );
+                    code = code.max(4);
+                }
+            }
             sig::Outcome::Bad(why) => {
                 println!("{}: SIGNATURE BAD: {}", path, why);
                 code = code.max(3);
