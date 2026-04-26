@@ -224,6 +224,16 @@ else
     no "check and ssh-keygen disagree about which files are readable"
 fi
 
+note "which option names the local OpenSSH recognises"
+out=$(python3 "$HERE/unknowncmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* names probed, [0-9]* recognised by ssh-keygen, 0 differ$'; then
+    ok "sshkeyv's recognised set matches the installed ssh-keygen's"
+else
+    no "sshkeyv's recognised set differs from the installed ssh-keygen's"
+fi
+
 note "construct counts, and the constructs the suite depends on"
 out=$(python3 "$HERE/countcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

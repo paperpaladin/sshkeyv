@@ -20,7 +20,7 @@ use crate::wire::Reader;
 /// older ssh-keygen prints a name it does not know as UNKNOWN, and the
 /// whole point of the sshd-ext command later on is that the server's list
 /// is version-specific too.
-const FLAG_EXTENSIONS: &[&str] = &[
+pub const FLAG_EXTENSIONS: &[&str] = &[
     "permit-X11-forwarding",
     "permit-agent-forwarding",
     "permit-port-forwarding",
@@ -31,10 +31,10 @@ const FLAG_EXTENSIONS: &[&str] = &[
 
 /// Critical options whose data holds exactly one string, which is printed
 /// after the name.
-const STRING_CRITICAL: &[&str] = &["force-command", "source-address"];
+pub const STRING_CRITICAL: &[&str] = &["force-command", "source-address"];
 
 /// Critical options ssh-keygen prints bare.
-const FLAG_CRITICAL: &[&str] = &["verify-required"];
+pub const FLAG_CRITICAL: &[&str] = &["verify-required"];
 
 fn option_line(o: &Opt, in_critical: bool) -> String {
     if !in_critical && FLAG_EXTENSIONS.contains(&o.name) {

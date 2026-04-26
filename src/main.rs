@@ -52,6 +52,8 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
                   fingerprints, the line ssh-keygen -l prints
   convert -m FORMAT FILE
                   re-encode a public key as rfc4716, pkcs8 or openssh
+  unknown [FILE...]  options and extensions the local OpenSSH does not
+                  recognise; exits 4 when a CRITICAL one is unrecognised
   check [FILE...]   parse each file fully; print ok or the refusal
   counts [FILE...]  how many of each construct the files hold
   fields [FILE...]  one \"path name value\" line per field, tab separated
@@ -758,6 +760,79 @@ fn check_one(path: &str) -> Result<String, String> {
     ))
 }
 
+// `unknown` answers the question behind a certificate that fails closed:
+// which names in it does the software at the other end not know.
+//
+// The set sshkeyv compares against is the set the LOCAL OpenSSH's
+// ssh-keygen prints bare rather than as UNKNOWN, which is measurable:
+// t/unknowncmp.py probes the installed ssh-keygen with a synthetic
+// certificate per name and reads back which ones it recognises.
+//
+// That set is not sshd's accept list. They are separate code paths in
+// OpenSSH and there is no sshd on this machine to measure the other one,
+// so the README says which question is answered and which is not. The
+// original plan was a --version N flag carrying a per-release table; it is
+// marked BLOCKED in PLAN.md, because the only source for such a table here
+// would be memory.
+fn cmd_unknown(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let mut code = 0;
+    for path in args {
+        let (k, _) = match read_cert(path) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("sshkeyv: {}", e);
+                code = code.max(1);
+                continue;
+            }
+        };
+        let c = match cert::Cert::parse(&k.blob, k.algo) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("sshkeyv: {}: {}", path, e);
+                code = code.max(1);
+                continue;
+            }
+        };
+        let mut said = false;
+        for o in &c.critical {
+            if !show::STRING_CRITICAL.contains(&o.name)
+                && !show::FLAG_CRITICAL.contains(&o.name)
+            {
+                println!(
+                    "{}: critical option {} is not recognised; a server \
+                     that does not understand a critical option REFUSES \
+                     the certificate",
+                    path, o.name
+                );
+                said = true;
+                code = code.max(4);
+            }
+        }
+        for o in &c.extensions {
+            if !show::FLAG_EXTENSIONS.contains(&o.name) {
+                println!(
+                    "{}: extension {} is not recognised; a server ignores \
+                     an extension it does not understand, so the \
+                     permission it was meant to grant is simply absent",
+                    path, o.name
+                );
+                said = true;
+            }
+        }
+        if !said {
+            println!(
+                "{}: every critical option and extension is recognised",
+                path
+            );
+        }
+    }
+    code
+}
+
 fn cmd_check(args: &[String]) -> i32 {
     if args.is_empty() {
         eprint!("{}", USAGE);
@@ -1063,6 +1138,7 @@ fn main() {
         "priv" => cmd_priv(&args[1..]),
         "show" => cmd_show(&args[1..]),
         "fp" => cmd_fp(&args[1..]),
+        "unknown" => cmd_unknown(&args[1..]),
         "check" => cmd_check(&args[1..]),
         "counts" => cmd_counts(&args[1..]),
         "convert" => cmd_convert(&args[1..]),

@@ -263,10 +263,20 @@ reduced run would print a row of passes having compared sshkeyv with itself.
 - [x] `sshkeyv check`: read every layer of every container and report
   why: the command that would notice an option whose data is not a single
   string, or a container whose two copies of the public key disagree.
-- [ ] `sshkeyv sshd-ext --version N`: which extensions and critical options
-      a given sshd release would not understand
-  why: the actual question behind a certificate that fails closed, and the
-  table is from OpenSSH's own source history rather than invented.
+- [x] `sshkeyv unknown`: which critical options and extensions the local
+      OpenSSH does not recognise, exit 4 when a critical one is unknown
+  why: the actual question behind a certificate that fails closed. The set
+  is measured from the installed ssh-keygen by probing it, not written
+  down.
+- [ ] BLOCKED: `--version N`, a per-release table of which sshd understood
+      which name.
+  why: there is no authority for such a table on this machine. The
+  installed OpenSSH answers for itself and nothing else does: no sshd is
+  installed, no OpenSSH source tree is present, and the ssh-keygen manual
+  page carries no version history for the option names. The only source
+  would be memory, which METHOD says to leave out of the README rather
+  than invent. What exists instead is the measured set of the OpenSSH on
+  this machine, and the README says which question that answers.
 - [ ] exact-size allocation for every buffer that holds parsed input, and
       `make overread` with a planted one-past-the-end read that must be
       caught
