@@ -268,6 +268,11 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: the actual question behind a certificate that fails closed. The set
   is measured from the installed ssh-keygen by probing it, not written
   down.
+- [x] a real Bleichenbacher low-exponent forgery, built and refused
+  why: the PKCS#1 v1.5 case that a verifier written the obvious way
+  accepts, and the reason the block is compared whole rather than searched.
+  Building the forgery is the only way to know the comparison is the thing
+  doing the work.
 - [ ] BLOCKED: `--version N`, a per-release table of which sshd understood
       which name.
   why: there is no authority for such a table on this machine. The

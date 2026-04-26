@@ -293,6 +293,16 @@ else
     no "a certificate was accepted by the wrong CA key or rejected by its own"
 fi
 
+note "a real low-exponent RSA forgery, and a key too small to look at"
+out=$(python3 "$HERE/forge.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* cases, [0-9]* refused, 0 wrong$'; then
+    ok "the Bleichenbacher forgery is refused and so is a 512-bit modulus"
+else
+    no "a forged RSA signature was accepted"
+fi
+
 note "Ed25519 signatures that must not verify"
 out=$(python3 "$HERE/edcases.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
