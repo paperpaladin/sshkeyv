@@ -384,6 +384,10 @@ fn cmd_sigverify(args: &[String]) -> i32 {
                      sigfile, msg.len());
             0
         }
+        sig::Outcome::GoodButMeaningless(why) => {
+            println!("{}: signature good but MEANINGLESS: {}", sigfile, why);
+            4
+        }
         sig::Outcome::Bad(why) => {
             println!("{}: SIGNATURE BAD: {}", sigfile, why);
             3
@@ -524,6 +528,13 @@ fn cmd_verify(args: &[String]) -> i32 {
                     );
                     code = code.max(4);
                 }
+            }
+            sig::Outcome::GoodButMeaningless(why) => {
+                println!(
+                    "{}: signature good but MEANINGLESS: {}",
+                    path, why
+                );
+                code = code.max(4);
             }
             sig::Outcome::Bad(why) => {
                 println!("{}: SIGNATURE BAD: {}", path, why);

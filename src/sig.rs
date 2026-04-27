@@ -12,6 +12,11 @@ use crate::wire::Reader;
 
 pub enum Outcome {
     Good,
+    /// The signature satisfies the verification equation, and the key it
+    /// was checked against is one for which that means nothing. Exit 4,
+    /// alongside an untrusted CA: the file parsed, the arithmetic held,
+    /// and the answer to the question anybody is actually asking is no.
+    GoodButMeaningless(String),
     /// The signature is present and wrong, or the key and signature do
     /// not go together. Exit 3.
     Bad(String),
@@ -74,7 +79,13 @@ pub fn verify(key_blob: &[u8], sig_blob: &[u8], msg: &[u8]) -> Outcome {
         }
         (Material::Ed25519 { pk }, "ssh-ed25519") => {
             match crate::ed25519::verify(pk, msg, raw) {
-                Ok(()) => Outcome::Good,
+                Ok(()) => match crate::ed25519::small_order(pk) {
+                    Ok(true) => Outcome::GoodButMeaningless(
+                        "the signing key is an Ed25519 point whose order                          divides 8, so the verification equation holds for                          signatures over any message and a good signature                          proves nothing"
+                            .to_string(),
+                    ),
+                    _ => Outcome::Good,
+                },
                 Err(e) => Outcome::Bad(e),
             }
         }

@@ -262,6 +262,28 @@ fn bit(n: &Nat, i: usize) -> bool {
     (be[be.len() - 1 - byte] >> (i % 8)) & 1 == 1
 }
 
+/// Whether a public key is a point whose order divides 8.
+///
+/// Ed25519 as RFC 8032 specifies it, and as OpenSSH and OpenSSL implement
+/// it, uses the cofactorless equation [S]B = R + [k]A and does not reject
+/// a small-order public key. The consequence is worth saying out loud: if
+/// A is the identity, then R = identity with S = 0 satisfies the equation
+/// for ANY message, so every signature verifies and a verified signature
+/// proves nothing at all. Measured here, openssl calls exactly that
+/// combination good for the identity and for two of the eight torsion
+/// points.
+///
+/// sshkeyv therefore matches the arithmetic and reports the fact, rather
+/// than refusing the key and disagreeing with both oracles about whether
+/// the signature is valid. It is the only thing in this program that
+/// answers a question about a key instead of about bytes.
+pub fn small_order(pk: &[u8]) -> Result<bool, String> {
+    let f = Field { p: p() };
+    let a = decode(pk, &f)?;
+    let eight = double(&double(&double(&a, &f), &f), &f);
+    Ok(encode(&eight, &f) == encode(&identity(), &f))
+}
+
 /// Verify a 64-byte Ed25519 signature over `msg` with a 32-byte public
 /// key. Ok means the signature is good.
 pub fn verify(pk: &[u8], msg: &[u8], sig: &[u8]) -> Result<(), String> {

@@ -268,6 +268,12 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: the actual question behind a certificate that fails closed. The set
   is measured from the installed ssh-keygen by probing it, not written
   down.
+- [x] Ed25519 keys of small order, reported rather than refused
+  why: with A the identity, R = identity and S = 0 satisfy the
+  verification equation for any message, and neither OpenSSH nor OpenSSL
+  rejects such a key. Refusing it would disagree with both oracles about
+  whether an equation holds, so the right answer is to agree and say what
+  it means.
 - [x] a real Bleichenbacher low-exponent forgery, built and refused
   why: the PKCS#1 v1.5 case that a verifier written the obvious way
   accepts, and the reason the block is compared whole rather than searched.

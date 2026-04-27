@@ -303,6 +303,16 @@ else
     no "a forged RSA signature was accepted"
 fi
 
+note "Ed25519 keys of small order, where a good signature means nothing"
+out=$(python3 "$HERE/smallorder.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* keys, [0-9]* meaningless, [0-9]* refused, 0 differ$'; then
+    ok "small-order keys are flagged, and the arithmetic agrees with openssl"
+else
+    no "a small-order key was mishandled or sshkeyv disagreed with openssl"
+fi
+
 note "Ed25519 signatures that must not verify"
 out=$(python3 "$HERE/edcases.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
