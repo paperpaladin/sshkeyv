@@ -35,6 +35,10 @@ impl<'a> Opt<'a> {
     }
 }
 
+/// The most principals OpenSSH will load. Measured against ssh-keygen,
+/// not copied from a header.
+pub const MAX_PRINCIPALS: usize = 256;
+
 pub const TYPE_USER: u32 = 1;
 pub const TYPE_HOST: u32 = 2;
 
@@ -110,6 +114,22 @@ impl<'a> Cert<'a> {
         }
         let key_id = r.text()?;
         let principals = string_seq(r.string()?, "principals")?;
+        // OpenSSH refuses a certificate with more than 256 principals and
+        // prints "invalid key: invalid format". The number is measured
+        // rather than read out of a header: t/craft.py bisects ssh-keygen
+        // -L with certificates carrying 1 to 1000 principals and the
+        // suite asserts the boundary every run, so a different OpenSSH
+        // moving it shows up as a failure rather than as a silent
+        // disagreement. A certificate no OpenSSH will load is one this
+        // program should not report as fine.
+        if principals.len() > MAX_PRINCIPALS {
+            return Err(format!(
+                "the certificate lists {} principals; OpenSSH refuses more \
+                 than {}",
+                principals.len(),
+                MAX_PRINCIPALS
+            ));
+        }
         let valid_after = r.u64()?;
         let valid_before = r.u64()?;
         if valid_after > valid_before {

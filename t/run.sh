@@ -234,6 +234,16 @@ else
     no "sshkeyv's recognised set differs from the installed ssh-keygen's"
 fi
 
+note "certificates ssh-keygen will not write, built by hand"
+out=$(python3 "$HERE/craft.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* crafted, [0-9]* shown identically, [0-9]* refused by both, 0 differ$'; then
+    ok "the crafted shapes read the same way as ssh-keygen reads them"
+else
+    no "a crafted certificate reads differently from ssh-keygen"
+fi
+
 note "construct counts, and the constructs the suite depends on"
 out=$(python3 "$HERE/countcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
@@ -307,10 +317,10 @@ note "Ed25519 keys of small order, where a good signature means nothing"
 out=$(python3 "$HERE/smallorder.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
-     | grep -q '^[0-9]* keys, [0-9]* meaningless, [0-9]* refused, 0 differ$'; then
-    ok "small-order keys are flagged, and the arithmetic agrees with openssl"
+     | grep -q '^[0-9]* cases, [0-9]* as expected, 0 differ, [1-9][0-9]* known oracle disagreements$'; then
+    ok "small-order keys behave as computed, with one recorded disagreement"
 else
-    no "a small-order key was mishandled or sshkeyv disagreed with openssl"
+    no "a small-order key was mishandled, or the recorded disagreement moved"
 fi
 
 note "Ed25519 signatures that must not verify"

@@ -268,6 +268,12 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: the actual question behind a certificate that fails closed. The set
   is measured from the installed ssh-keygen by probing it, not written
   down.
+- [x] certificates ssh-keygen will not write, built by hand
+  why: it sorts the options lists, removes duplicates, refuses an empty
+  principal and always writes a nonce, so the shapes a server rejects
+  cannot be in the corpus otherwise. Making ssh-keygen read them needed
+  the identity-CA trick, which is itself the demonstration of why a
+  small-order signing key matters.
 - [x] Ed25519 keys of small order, reported rather than refused
   why: with A the identity, R = identity and S = 0 satisfy the
   verification equation for any message, and neither OpenSSH nor OpenSSL
