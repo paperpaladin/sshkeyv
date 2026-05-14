@@ -294,7 +294,7 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   would be memory, which METHOD says to leave out of the README rather
   than invent. What exists instead is the measured set of the OpenSSH on
   this machine, and the README says which question that answers.
-- [ ] exact-size allocation for every buffer that holds parsed input, and
+- [x] exact-size allocation for every buffer that holds parsed input, and
       `make overread` with a planted one-past-the-end read that must be
       caught
   why: METHOD's buffer section. A Vec with spare capacity indexed by a

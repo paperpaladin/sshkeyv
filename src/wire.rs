@@ -88,9 +88,16 @@ impl<'a> Reader<'a> {
                 self.what, at, n, self.remaining()
             ));
         }
+        let r = self.bytes(n);
+        // The planted one-past-the-end read. See `make overread`. It
+        // reads the byte immediately after the string just returned,
+        // which for the LAST string in a blob is one past the end of the
+        // buffer. black_box keeps it from being optimised away.
         #[cfg(feature = "plant_overread")]
-        let n = n + 1;
-        self.bytes(n)
+        {
+            let _ = std::hint::black_box(self.b[self.pos]);
+        }
+        r
     }
 
     /// A string that has to be UTF-8 to mean anything: an algorithm name, a

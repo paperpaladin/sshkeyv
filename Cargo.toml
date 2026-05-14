@@ -12,6 +12,12 @@ edition = "2021"
 # length has the same blind spot a C buffer larger than its data has, and
 # Rust's bounds check only helps when the Vec is the length of the data.
 plant_overread = []
+# Makes base64 decoding return a buffer 64 bytes longer than the data,
+# zero filled. `make overread` builds with BOTH features and requires the
+# planted read NOT to be caught, which is the demonstration that a buffer
+# larger than its data turns the bounds check off in Rust exactly as it
+# does in C.
+plant_slack = []
 
 [profile.release]
 panic = "abort"

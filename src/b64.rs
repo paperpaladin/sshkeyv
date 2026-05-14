@@ -84,6 +84,15 @@ pub fn decode(s: &[u8]) -> Result<Vec<u8>, String> {
             bits
         ));
     }
+    // See Cargo.toml and `make overread`. Rust's bounds check is against
+    // the LENGTH of the Vec, so a Vec longer than its data moves the
+    // check away from the end of the data and a read one past the end
+    // lands on a zero byte with nothing to say about it. This is the
+    // shape METHOD's buffer section is about, written out so that the
+    // suite can run the same planted over-read both ways.
+    #[cfg(feature = "plant_slack")]
+    out.resize(out_len + 64, 0);
+    #[cfg(not(feature = "plant_slack"))]
     if out.len() != out_len {
         return Err(format!(
             "base64 produced {} bytes, expected {}",

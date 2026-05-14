@@ -343,6 +343,15 @@ else
     no "sshkeyv and ssh-keygen disagree about which lines are malformed"
 fi
 
+note "the planted one-past-the-end read, both ways"
+out=$(cd "$ROOT" && make overread 2>&1); rc=$?
+echo "$out" | grep -v '^ *Compiling\|^ *Finished\|^cargo\|^sh ' | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^caught 1, missed 1$'; then
+    ok "the planted read aborts with exact buffers and is invisible with padded ones"
+else
+    no "the planted read behaved the same way with and without padding"
+fi
+
 note "source invariants"
 n=$(cat "$ROOT"/src/*.rs | grep -c 'unsafe')
 if [ "$n" -eq 0 ]; then
