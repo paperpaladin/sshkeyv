@@ -301,7 +301,7 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   separate length has the same blind spot as a C buffer larger than its
   data, and Rust's bounds check is against the Vec's length, not the
   data's.
-- [ ] hostile corpus: every prefix of every corpus file, single bytes
+- [x] hostile corpus: every prefix of every corpus file, single bytes
       overwritten across the header and the first records, and the named
       malformed cases
   why: a length field read as an index is where every parser of this shape

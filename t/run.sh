@@ -352,6 +352,28 @@ else
     no "the planted read behaved the same way with and without padding"
 fi
 
+note "malformed input in bulk: prefixes, byte flips, mangled blobs"
+out=$(python3 "$HERE/hostile.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* inputs, [0-9]* read, [0-9]* refused, 0 crashed, 0 timed out$'; then
+    ok "nothing in the malformed sweep crashed or hung"
+else
+    no "something in the malformed sweep crashed or hung"
+fi
+# A sweep that reports no crashes is worth nothing until it has been seen
+# to find one. The overread build, already compiled above, aborts on the
+# last string of every blob, so the same sweep over a sample of it must
+# report crashes.
+probe=$(SSHKEYV_BIN=$ROOT/target/overread/release/sshkeyv \
+        python3 "$HERE/hostile.py" "$C" --sample 500 2>&1 | tail -1)
+echo "    against the deliberately aborting build: $probe"
+if echo "$probe" | grep -qv ', 0 crashed,'; then
+    ok "the sweep finds crashes when there are crashes to find"
+else
+    no "the sweep reported no crashes against a build that aborts"
+fi
+
 note "source invariants"
 n=$(cat "$ROOT"/src/*.rs | grep -c 'unsafe')
 if [ "$n" -eq 0 ]; then
