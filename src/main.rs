@@ -59,6 +59,8 @@ usage: sshkeyv COMMAND [OPTIONS] [FILE...]
   fields [FILE...]  one \"path name value\" line per field, tab separated
   blob [FILE...]  the top-level SSH strings of a blob: index, offset,
                   length, and the bytes as text or hex
+  time T...       format each epoch second as sshkeyv prints it, and
+                  parse it back; for the suite
   curve NAME      the curve parameters sshkeyv holds, as hex
   big OP A B [M]  bignum arithmetic on hex arguments, for the suite
   hash ALG        hex digest of stdin: sha256, sha512, sha1 or md5
@@ -1024,6 +1026,51 @@ fn render(s: &[u8]) -> String {
 // from the outside. Writing the P-521 group order with one hex digit
 // missing divided it by sixteen and every P-521 signature was then
 // reported as having an r or s above the group order.
+// The time command exists for the suite. The calendar conversion is
+// Howard Hinnant's civil_from_days and its inverse, and both are easy to
+// get right for 2026 and wrong for 1900, 2100 or a leap day. date -u is
+// the oracle.
+fn cmd_time(args: &[String]) -> i32 {
+    if args.is_empty() {
+        eprint!("{}", USAGE);
+        return 2;
+    }
+    let mut code = 0;
+    for a in args {
+        match a.parse::<u64>() {
+            Ok(t) => match time::format(t) {
+                Some(s) => {
+                    // And straight back, so the two directions are put
+                    // against each other as well as against date.
+                    match time::parse(&s) {
+                        Ok(back) if back == t => println!("{}\t{}", t, s),
+                        Ok(back) => {
+                            println!("{}\t{}\tROUND TRIP {}", t, s, back);
+                            code = 1;
+                        }
+                        Err(e) => {
+                            println!("{}\t{}\tREPARSE FAILED {}", t, s, e);
+                            code = 1;
+                        }
+                    }
+                }
+                None => println!("{}\tunrepresentable", t),
+            },
+            Err(_) => {
+                // Not a number: treat it as a time to parse.
+                match time::parse(a) {
+                    Ok(t) => println!("{}\t{}", a, t),
+                    Err(e) => {
+                        println!("{}\tREFUSED {}", a, e);
+                        code = 1;
+                    }
+                }
+            }
+        }
+    }
+    code
+}
+
 fn cmd_curve(args: &[String]) -> i32 {
     let name = match args.first() {
         Some(n) => n.as_str(),
@@ -1155,6 +1202,7 @@ fn main() {
         "convert" => cmd_convert(&args[1..]),
         "fields" => cmd_fields(&args[1..]),
         "blob" => cmd_blob(&args[1..]),
+        "time" => cmd_time(&args[1..]),
         "curve" => cmd_curve(&args[1..]),
         "big" => cmd_big(&args[1..]),
         "hash" => cmd_hash(&args[1..]),

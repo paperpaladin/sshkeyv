@@ -169,6 +169,16 @@ else
     no "a certificate block differs from ssh-keygen's"
 fi
 
+note "validity time formatting, against date -u"
+out=$(sh "$HERE/timecmp.sh" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* instants, 0 differ, 0 round trips differ$'; then
+    ok "the calendar arithmetic agrees with date -u both ways"
+else
+    no "the calendar arithmetic disagrees with date -u"
+fi
+
 note "validity verdicts and principal authorisation"
 out=$(python3 "$HERE/validcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'

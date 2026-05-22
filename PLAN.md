@@ -268,6 +268,10 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: the actual question behind a certificate that fails closed. The set
   is measured from the installed ssh-keygen by probing it, not written
   down.
+- [x] the calendar arithmetic against `date -u`, both directions
+  why: civil_from_days and its inverse are the kind of code that is right
+  for 2026 and wrong for 1900, 2100 or a leap day, and date is an oracle
+  with nothing to do with SSH.
 - [x] certificates ssh-keygen will not write, built by hand
   why: it sorts the options lists, removes duplicates, refuses an empty
   principal and always writes a nonce, so the shapes a server rejects
