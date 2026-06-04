@@ -124,10 +124,10 @@ else
 fi
 # The comparison above is worth nothing over a corpus with no certificates
 # in it, so the counts it prints are asserted on separately.
-if echo "$out" | grep -q '^4[0-9] plain keys, 2[0-9] certificates$'; then
-    ok "the fingerprint comparison saw both plain keys and certificates"
+if echo "$out" | grep -q '^4[0-9] plain keys, 2[0-9] certificates, 1[0-9] private containers of which [1-9] encrypted$'; then
+    ok "the fingerprint comparison saw plain keys, certificates and containers"
 else
-    no "the fingerprint comparison did not see both kinds"
+    no "the fingerprint comparison did not see all three kinds"
 fi
 
 note "the bignum, against python's integers"

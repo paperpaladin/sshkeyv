@@ -626,9 +626,7 @@ fn cmd_fp(args: &[String]) -> i32 {
     }
     let mut code = 0;
     for path in paths {
-        let r = first_line(path)
-            .and_then(|l| key::PublicKey::parse_line(&l))
-            .and_then(|k| fp::line(kind, &k));
+        let r = read_any_pubkey(path).and_then(|k| fp::line(kind, &k));
         match r {
             Ok(l) => println!("{}", l),
             Err(e) => {
@@ -661,6 +659,38 @@ fn read_any_pubkey(path: &str) -> Result<key::PublicKey, String> {
                 None => String::new(),
             }
         );
+        return key::PublicKey::parse_line(&line)
+            .map_err(|e| format!("{}: {}", path, e));
+    }
+    // A private key container carries its public key in clear, which is
+    // what ssh-keygen -l reads when it is handed one and is why that
+    // works on an encrypted key. Taking it from here rather than from a
+    // neighbouring .pub file matters: ssh-keygen -l prefers the .pub file
+    // when one exists beside the private key, and the two can disagree.
+    if trimmed.starts_with(concat!("-----BEGIN OPENSSH ", "PRIVATE KEY-----")) {
+        let p = pem::parse(&text).map_err(|e| format!("{}: {}", path, e))?;
+        let c = privkey::Container::parse(&p.body)
+            .map_err(|e| format!("{}: {}", path, e))?;
+        let blob = c.public[0].to_vec();
+        let name = {
+            let mut r = wire::Reader::new(&blob, "container public key");
+            r.text().map_err(|e| format!("{}: {}", path, e))?.to_string()
+        };
+        // The comment lives in the PRIVATE section, so it is readable only
+        // when the key is not encrypted. ssh-keygen gets it from the
+        // neighbouring .pub file instead, which is why ssh-keygen -l
+        // prints a comment for an encrypted key and sshkeyv does not: it
+        // reads the file it was given and no other.
+        let mut comment = String::new();
+        if !c.encrypted() {
+            let block = privkey::cipher_block(c.cipher).unwrap_or(8);
+            if let Ok(pv) = privkey::Private::parse(c.private, block) {
+                if !pv.comment.is_empty() {
+                    comment = format!(" {}", pv.comment);
+                }
+            }
+        }
+        let line = format!("{} {}{}", name, b64::encode(&blob), comment);
         return key::PublicKey::parse_line(&line)
             .map_err(|e| format!("{}: {}", path, e));
     }
@@ -946,9 +976,7 @@ fn cmd_fields(args: &[String]) -> i32 {
     }
     let mut code = 0;
     for path in args {
-        let r = first_line(path)
-            .and_then(|l| key::PublicKey::parse_line(&l))
-            .and_then(|k| fields::print(path, &k));
+        let r = read_any_pubkey(path).and_then(|k| fields::print(path, &k));
         if let Err(e) = r {
             eprintln!("sshkeyv: {}", e);
             code = 1;
