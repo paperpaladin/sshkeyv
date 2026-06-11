@@ -268,6 +268,10 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: the actual question behind a certificate that fails closed. The set
   is measured from the installed ssh-keygen by probing it, not written
   down.
+- [x] `sshkeyv valid --principal NAME --host|--user`: one combined verdict
+  why: the real question is all three at once, and a command that stops
+  at the first no needs running three times to learn that a certificate
+  is expired and for the wrong principal and the wrong kind.
 - [x] the calendar arithmetic against `date -u`, both directions
   why: civil_from_days and its inverse are the kind of code that is right
   for 2026 and wrong for 1900, 2100 or a leap day, and date is an oracle

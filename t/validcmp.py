@@ -130,6 +130,46 @@ def main():
                 bad.append("%s at %d: exit 4 but the line says %r"
                            % (name, at, line))
 
+        # The combined verdict. Every question is asked in one run and
+        # the exit status is the worst answer, so a certificate that is
+        # expired AND for the wrong principal AND the wrong kind must
+        # still exit 4 and must print all three lines. A command that
+        # stopped at the first no would need running three times.
+        kind = subprocess.run(["ssh-keygen", "-L", "-f", path], env=ENV,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL)
+        is_host = " host certificate" in kind.stdout.decode()
+        now = int(_time.time())
+        in_window = after <= now <= before
+        for flag, want_kind_ok in (("--host", is_host),
+                                   ("--user", not is_host)):
+            questions = [
+                (principals[0] if principals else "anybody", True),
+                ("definitely-not-listed", not principals),
+            ]
+            for who, want_auth in questions:
+                p = subprocess.run([BIN, "valid", flag, "--principal", who,
+                                    path],
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+                lines = p.stdout.decode().strip().splitlines()
+                want_ok = in_window and want_kind_ok and want_auth
+                verdicts += 1
+                if (p.returncode == 0) != want_ok:
+                    vdiffer += 1
+                    bad.append("%s %s %s: rc=%d, wanted %s -- %r"
+                               % (name, flag, who, p.returncode, want_ok,
+                                  lines))
+                # Every question must produce a line, whatever the answer.
+                want_lines = 2
+                if not want_kind_ok:
+                    want_lines = 3
+                if len(lines) != want_lines:
+                    vdiffer += 1
+                    bad.append("%s %s %s: printed %d lines, wanted %d: %r"
+                               % (name, flag, who, len(lines), want_lines,
+                                  lines))
+
         # Authorisation: every listed principal must be authorised, and a
         # name that is not listed must not be, unless the list is empty.
         questions = list(principals) + ["definitely-not-listed",

@@ -36,8 +36,9 @@ use std::io::{Read, Write};
 const USAGE: &str = "\
 usage: sshkeyv COMMAND [OPTIONS] [FILE...]
 
-  valid [--at TIME] [FILE...]
-                  is each certificate in its window, and for how long
+  valid [--at TIME] [--principal NAME] [--host|--user] [FILE...]
+                  is each certificate in its window, of the kind asked
+                  for, and does it authorise the principal asked about
   authorises NAME [FILE...]
                   does each certificate authorise NAME
   verify [--ca FILE]... [FILE...]
@@ -175,10 +176,24 @@ fn read_cert(path: &str) -> Result<(key::PublicKey, Vec<u8>), String> {
 
 fn cmd_valid(args: &[String]) -> i32 {
     let mut at = time::now();
+    let mut principal: Option<&String> = None;
+    let mut want_type: Option<u32> = None;
     let mut paths: Vec<&String> = Vec::new();
     let mut it = args.iter();
     while let Some(a) = it.next() {
-        if a == "--at" {
+        if a == "--principal" {
+            match it.next() {
+                Some(p) => principal = Some(p),
+                None => {
+                    eprintln!("sshkeyv: --principal wants a name");
+                    return 2;
+                }
+            }
+        } else if a == "--host" {
+            want_type = Some(cert::TYPE_HOST);
+        } else if a == "--user" {
+            want_type = Some(cert::TYPE_USER);
+        } else if a == "--at" {
             match it.next().map(|v| time::parse(v)) {
                 Some(Ok(t)) => at = t,
                 Some(Err(e)) => {
@@ -200,19 +215,49 @@ fn cmd_valid(args: &[String]) -> i32 {
     }
     let mut code = 0;
     for path in paths {
-        match read_cert(path).and_then(|(k, _)| {
-            let c = cert::Cert::parse(&k.blob, k.algo)?;
-            Ok(ask::valid(path, &c, at))
-        }) {
-            Ok((line, ok)) => {
-                println!("{}", line);
-                if !ok && code == 0 {
-                    code = 4;
-                }
-            }
+        let (k, _) = match read_cert(path) {
+            Ok(v) => v,
             Err(e) => {
                 eprintln!("sshkeyv: {}", e);
                 code = 1;
+                continue;
+            }
+        };
+        let c = match cert::Cert::parse(&k.blob, k.algo) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("sshkeyv: {}: {}", path, e);
+                code = 1;
+                continue;
+            }
+        };
+        // Every question asked is answered and printed, and the exit
+        // status is the worst of them. Stopping at the first no would
+        // mean running the command three times to find out that a
+        // certificate is expired AND for the wrong principal AND a host
+        // certificate where a user one was wanted.
+        let (line, ok) = ask::valid(path, &c, at);
+        println!("{}", line);
+        if !ok {
+            code = code.max(4);
+        }
+        if let Some(want) = want_type {
+            if c.cert_type != want {
+                println!(
+                    "{}: WRONG KIND: this is a {} certificate and a {} one \
+                     was asked for",
+                    path,
+                    c.type_name(),
+                    if want == cert::TYPE_HOST { "host" } else { "user" }
+                );
+                code = code.max(4);
+            }
+        }
+        if let Some(name) = principal {
+            let (l, ok) = ask::authorises(path, &c, name);
+            println!("{}", l);
+            if !ok {
+                code = code.max(4);
             }
         }
     }
