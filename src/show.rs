@@ -84,6 +84,10 @@ fn key_line(blob: &[u8], kind: fp::Kind) -> Result<String, String> {
     Ok(format!("{} {}", m.label(), fp::digest(kind, blob)))
 }
 
+// shortcut: validity times print in UTC where ssh-keygen prints local
+// time. The ceiling is a reader in another zone comparing the two
+// outputs by eye. The upgrade is reading /etc/localtime, which means
+// implementing TZif and carrying a timezone database.
 pub fn show(path: &str, c: &Cert, subject_blob: &[u8]) -> Result<(), String> {
     let kind = fp::Kind::Sha256;
     println!("{}:", path);

@@ -227,6 +227,10 @@ fn wrap_header(h: &str) -> Vec<String> {
     out
 }
 
+// shortcut: of the RFC 4716 headers only Comment is interpreted. The
+// ceiling is a block carrying Subject or an x- header, whose value is
+// parsed for the continuation rule and then dropped. Nothing OpenSSH
+// writes has one.
 /// Read an RFC 4716 block into a key blob and its Comment header.
 pub fn from_rfc4716(text: &str) -> Result<(Vec<u8>, Option<String>), String> {
     let mut lines = text.lines();

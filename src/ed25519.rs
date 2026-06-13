@@ -238,6 +238,12 @@ fn add(a: &Pt, b: &Pt, f: &Field) -> Pt {
     }
 }
 
+// shortcut: plain double-and-add, one point addition per set bit, and
+// the two scalar multiplications in a verification are done separately
+// rather than as one multi-scalar multiplication. The ceiling is about
+// 7 milliseconds per verification, which the suite spends 200 times. A
+// 4-bit window and Straus's trick together are roughly four times
+// faster and are the upgrade if that ever matters.
 fn scalar_mul(k: &Nat, pt: &Pt, f: &Field) -> Pt {
     let mut acc = identity();
     let bits = k.bits();

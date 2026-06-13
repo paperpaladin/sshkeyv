@@ -223,6 +223,9 @@ fn bit(n: &Nat, i: usize) -> bool {
     (be[be.len() - 1 - byte] >> (i % 8)) & 1 == 1
 }
 
+// shortcut: the same plain double-and-add as src/ed25519.rs, with the
+// same ceiling and the same upgrade. P-521 is the slow case at about 8
+// milliseconds.
 fn scalar_mul(k: &Nat, pt: &Pt, f: &F) -> Pt {
     let mut acc = identity();
     for i in (0..k.bits()).rev() {

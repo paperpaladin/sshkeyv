@@ -24,6 +24,12 @@
 
 use crate::wire::{Reader, Res};
 
+// shortcut: the encrypted private section is reported and never
+// decrypted. The ceiling is that nothing behind a passphrase can be
+// checked: the check words, the padding and the second copy of the
+// public key are all unverifiable for an encrypted container. The
+// upgrade is bcrypt-pbkdf plus AES-CTR and ChaCha20-Poly1305, which is a
+// different project and a stated non-goal in PLAN.md.
 pub const MAGIC: &[u8] = b"openssh-key-v1\0";
 
 pub struct Container<'a> {

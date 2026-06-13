@@ -77,6 +77,13 @@ fn has_glob(s: &str) -> bool {
     s.contains('*') || s.contains('?') || s.contains('!')
 }
 
+// shortcut: a host certificate's principals are compared exactly rather
+// than as patterns. The ceiling is a deployment that issues host
+// certificates with a wildcard in the principal list: sshkeyv will say
+// such a certificate does not authorise web1.example.com when the
+// consumer might think it does. The upgrade is OpenSSH's match_pattern,
+// and the reason it is not here is that there is no sshd on this machine
+// to measure the real rule against. Until then the wildcard is reported.
 /// Returns (line, ok).
 ///
 /// The comparison is an exact string match. OpenSSH's own matching of a

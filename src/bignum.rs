@@ -152,6 +152,11 @@ impl Nat {
         r
     }
 
+    // shortcut: schoolbook multiplication, O(n^2). The ceiling is RSA
+    // 4096, where one verification is 18 modular multiplications of 128
+    // limbs and takes under a millisecond, and P-521 scalar
+    // multiplication, where it is a few thousand of 17 limbs. Karatsuba
+    // is the upgrade and would matter only for keys nobody uses.
     pub fn mul(&self, o: &Nat) -> Nat {
         if self.is_zero() || o.is_zero() {
             return Nat::zero();
@@ -330,6 +335,12 @@ impl Nat {
         acc
     }
 
+    // shortcut: inversion by Fermat rather than extended Euclid, which
+    // costs a full exponentiation instead of about n divisions. The
+    // ceiling is that every modulus inverted here must be prime, which
+    // the two curve orders and the three field primes are. Inverting
+    // modulo a composite needs extended Euclid, and that needs a signed
+    // representation this file deliberately does not have.
     /// The inverse of self modulo a PRIME p, by Fermat: a^(p-2) mod p.
     /// Every modulus inverted in this program is prime, which is why
     /// there is no extended Euclid here and so no signed arithmetic.

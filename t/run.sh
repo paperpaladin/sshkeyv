@@ -385,6 +385,23 @@ else
 fi
 
 note "source invariants"
+# METHOD hard rule 3: ASCII punctuation only, in prose and in comments.
+# No file in this tree has a reason to hold anything else: there is no
+# non-ASCII test data here, because every byte sequence the suite needs
+# is generated at run time.
+na=$(LC_ALL=C grep -lP '[^\x00-\x7F]' "$ROOT"/src/*.rs "$ROOT"/t/*.py \
+        "$ROOT"/t/*.sh "$ROOT"/*.md "$ROOT"/Makefile "$ROOT"/Cargo.toml \
+        2>/dev/null | grep -v LICENSE | wc -l)
+if [ "$na" -eq 0 ]; then
+    ok "every source and document file is ASCII"
+else
+    no "$na files hold non-ASCII bytes"
+    LC_ALL=C grep -lP '[^\x00-\x7F]' "$ROOT"/src/*.rs "$ROOT"/t/*.py \
+        "$ROOT"/t/*.sh "$ROOT"/*.md 2>/dev/null | sed 's/^/    /'
+fi
+# Deliberate shortcuts are marked and counted, as METHOD rule 5 asks.
+ns=$(cat "$ROOT"/src/*.rs "$ROOT"/t/*.py | grep -c 'shortcut:')
+echo "    $ns shortcut comments"
 n=$(cat "$ROOT"/src/*.rs | grep -c 'unsafe')
 if [ "$n" -eq 0 ]; then
     ok "no unsafe in src (0 occurrences)"

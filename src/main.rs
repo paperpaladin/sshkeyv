@@ -73,6 +73,11 @@ fn fail(code: i32, msg: &str) -> ! {
     std::process::exit(code);
 }
 
+// shortcut: every input is read whole into memory. The ceiling is a file
+// larger than RAM, which for a key, a certificate or a signature does
+// not happen; the one input that could be large is the message a
+// detached signature covers, and the upgrade there is to hash it in
+// blocks rather than slurp it.
 fn read_stdin() -> Vec<u8> {
     let mut v = Vec::new();
     match std::io::stdin().read_to_end(&mut v) {
