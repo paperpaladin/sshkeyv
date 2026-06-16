@@ -268,6 +268,11 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: the actual question behind a certificate that fails closed. The set
   is measured from the installed ssh-keygen by probing it, not written
   down.
+- [x] determinism, and the same key read out of three containers
+  why: two properties with no external oracle. Rust's HashMap iterates in
+  a different order every process by design, so a map on an output path
+  is invisible until something repeats the run; and a container reader
+  that drops a byte is invisible until the same key is read two ways.
 - [x] `sshkeyv valid --principal NAME --host|--user`: one combined verdict
   why: the real question is all three at once, and a command that stops
   at the first no needs running three times to learn that a certificate

@@ -384,6 +384,16 @@ else
     no "the sweep reported no crashes against a build that aborts"
 fi
 
+note "determinism, and the same key in three containers"
+out=$(sh "$HERE/determinism.sh" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* commands run twice, 0 differ; [0-9]* keys in 3 containers, 0 differ$'; then
+    ok "every command repeats itself and every container agrees"
+else
+    no "a command is not deterministic, or two containers disagree"
+fi
+
 note "source invariants"
 # METHOD hard rule 3: ASCII punctuation only, in prose and in comments.
 # No file in this tree has a reason to hold anything else: there is no
