@@ -2,6 +2,21 @@
 # collection's build gate builds the DEFAULT target of every commit.
 CARGO ?= cargo
 
+# METHOD hard rule 4: the build must be reproducible. This is the Rust
+# spelling of -ffile-prefix-map, and it is a no-op for the binary as
+# things stand: cargo invoked from the package directory already passes
+# relative paths, and `strings` finds no absolute path in the release
+# binary with or without it. It is here for the case where that stops
+# being true, which is a build driven with an absolute --manifest-path.
+# Measured rather than assumed: t/repro.sh builds the tree twice in two
+# directories with different names and compares the binaries, and
+# unrepro reports the binary identical both ways. What unrepro does flag
+# is cargo's own bookkeeping under target/ (the .d dependency lists, the
+# fingerprint files and .rustc_info.json), which is a build cache and
+# not an output.
+RUSTFLAGS ?= --remap-path-prefix=$(CURDIR)=.
+export RUSTFLAGS
+
 all:
 	$(CARGO) build --release --offline
 

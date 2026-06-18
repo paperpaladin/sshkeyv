@@ -268,6 +268,10 @@ reduced run would print a row of passes having compared sshkeyv with itself.
   why: the actual question behind a certificate that fails closed. The set
   is measured from the installed ssh-keygen by probing it, not written
   down.
+- [x] METHOD hard rule 4: the build is reproducible, measured
+  why: two builds in the same directory match even when a build is
+  hopelessly unreproducible, so the check moves the tree. unrepro agrees
+  about the binary and flags only cargo's own cache under target/.
 - [x] determinism, and the same key read out of three containers
   why: two properties with no external oracle. Rust's HashMap iterates in
   a different order every process by design, so a map on an output path

@@ -394,6 +394,15 @@ else
     no "a command is not deterministic, or two containers disagree"
 fi
 
+note "the build, twice, in two differently named directories"
+out=$(sh "$HERE/repro.sh" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+if [ $rc -eq 0 ] && echo "$out" | grep -q '^built twice, identical'; then
+    ok "the two builds are byte identical"
+else
+    no "the two builds differ"
+fi
+
 note "source invariants"
 # METHOD hard rule 3: ASCII punctuation only, in prose and in comments.
 # No file in this tree has a reason to hold anything else: there is no
