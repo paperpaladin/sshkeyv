@@ -16,6 +16,21 @@ BIN=$ROOT/target/release/sshkeyv
 
 pass=0
 fail=0
+# The oracle roster. Every comparison records which outside program it
+# asked and how many things it compared, and the roster is printed at the
+# end and asserted on. METHOD: a summary line printed unconditionally is
+# not a result, so the roster is built out of numbers pulled from each
+# comparison's own output, and a comparison that silently compared
+# nothing shows up as a zero rather than as a row of passes.
+ROSTER=""
+record() {
+    ROSTER="$ROSTER$1\t$2\t$3\n"
+}
+num() {
+    # Pull the first capture out of the last line of $1 with sed, or the
+    # empty string, which the roster reports as NOT MEASURED.
+    printf '%s' "$1" | tail -1 | sed -n "s/$2/\1/p"
+}
 ok()   { pass=$((pass+1)); echo "ok   $*"; }
 no()   { fail=$((fail+1)); echo "FAIL $*"; }
 note() { echo "--- $*"; }
@@ -86,6 +101,7 @@ note "usage"
 note "base64, against python's"
 out=$(python3 "$HERE/b64cmp.py" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "python base64" "strings encoded and decoded" "$(num "$out" '^\([0-9]*\) compared.*$')"
 # Both halves on purpose: the exit status alone would pass if the script
 # died before comparing anything, and the summary line alone would pass if
 # the script crashed after printing it.
@@ -98,6 +114,7 @@ fi
 note "the SSH wire format, against t/wire.py"
 out=$(python3 "$HERE/wire.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "python struct" "wire-format lines" "$(num "$out" '^[0-9]* blobs, \([0-9]*\) lines compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* blobs, [0-9]* lines compared, 0 differ, 0 stop-offsets differ$'; then
     ok "the wire reader agrees with the python parser line for line"
@@ -108,6 +125,7 @@ fi
 note "SHA-256, SHA-512, MD5 and SHA-1, against coreutils and hashlib"
 out=$(python3 "$HERE/hashcmp.py" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "coreutils and hashlib" "digests" "$(num "$out" '^\([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^812 compared, 0 differ$'; then
     ok "all four digests agree with the coreutils tools and hashlib"
 else
@@ -117,6 +135,7 @@ fi
 note "fingerprints in four forms, against ssh-keygen -l and -B"
 out=$(python3 "$HERE/fpcmp.py" "$C" sha256 md5 sha1 bubblebabble 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -l and -B" "fingerprint lines" "$(num "$out" '^\([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^[0-9]* compared, 0 differ, 0 refused$'; then
     ok "every fingerprint line equals ssh-keygen's"
 else
@@ -133,6 +152,7 @@ fi
 note "the bignum, against python's integers"
 out=$(python3 "$HERE/bigcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "python integers" "bignum operations" "$(num "$out" '^\([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^[0-9]* compared, 0 differ$'; then
     ok "every bignum operation agrees with python"
 else
@@ -142,6 +162,7 @@ fi
 note "key fields, against ssh-keygen -l and a python parse"
 out=$(python3 "$HERE/fieldcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -l and python" "key fields" "$(num "$out" '^[0-9]* files, \([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* files, [0-9]* compared, 0 differ, 0 refused, [0-9]* declined$'; then
     ok "every key field agrees with the oracles"
@@ -152,6 +173,7 @@ fi
 note "certificate fields, against ssh-keygen -L and a python parse"
 out=$(python3 "$HERE/certcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -L and python" "certificate fields" "$(num "$out" '^[0-9]* certificates, \([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* certificates, [0-9]* compared, 0 differ, 0 refused$'; then
     ok "every certificate field agrees with the oracles"
@@ -162,6 +184,7 @@ fi
 note "sshkeyv show against ssh-keygen -L, whole output"
 out=$(sh "$HERE/showcmp.sh" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -L" "whole certificate blocks" "$(num "$out" '^\([0-9]*\) certificates.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* certificates, [0-9]* identical, 0 differ$'; then
     ok "every certificate block is byte for byte ssh-keygen's"
@@ -172,6 +195,7 @@ fi
 note "validity time formatting, against date -u"
 out=$(sh "$HERE/timecmp.sh" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "date -u" "instants formatted and parsed" "$(num "$out" '^\([0-9]*\) instants.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* instants, 0 differ, 0 round trips differ$'; then
     ok "the calendar arithmetic agrees with date -u both ways"
@@ -182,6 +206,7 @@ fi
 note "validity verdicts and principal authorisation"
 out=$(python3 "$HERE/validcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -L" "validity verdicts" "$(printf '%s' "$out" | sed -n 's/^[0-9]* certificates, \([0-9]*\) verdicts compared.*$/\1/p')"
 if [ $rc -eq 0 ] \
    && echo "$out" | grep -q '^[0-9]* certificates, [0-9]* verdicts compared, 0 differ$' \
    && echo "$out" | grep -q '^[0-9]* authorisation questions, 0 differ$'; then
@@ -193,6 +218,7 @@ fi
 note "the private key container, against ssh-keygen -y, -l and a python parse"
 out=$(python3 "$HERE/privcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -y and -l" "private container fields" "$(num "$out" '^\([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* compared, 0 differ, 0 refused; [0-9]* malformed refused by both, 0 over-refused, 0 under-refused$'; then
     ok "the container header and private section agree with the oracles"
@@ -203,6 +229,7 @@ fi
 note "certificate CA signatures, against openssl"
 out=$(python3 "$HERE/sigcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "openssl" "certificate signatures" "$(num "$out" '^\([0-9]*\) corruptions.*$')"
 if echo "$out" | grep -q '^[0-9]* compared, [0-9]* agree, 0 differ, '; then
     ok "sshkeyv and openssl agree on every signature either can judge"
 else
@@ -227,6 +254,7 @@ fi
 note "sshkeyv check over every file, with ssh-keygen as the authority"
 out=$(sh "$HERE/checkcmp.sh" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -l, -i and -Y" "files read or refused" "$(num "$out" '^\([0-9]*\) files.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* files, [0-9]* ok, [0-9]* refused by both, 0 over-refused, 0 under-refused$'; then
     ok "check and ssh-keygen read and refuse the same files"
@@ -237,6 +265,7 @@ fi
 note "which option names the local OpenSSH recognises"
 out=$(python3 "$HERE/unknowncmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -L" "option names probed" "$(num "$out" '^\([0-9]*\) names probed.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* names probed, [0-9]* recognised by ssh-keygen, 0 differ$'; then
     ok "sshkeyv's recognised set matches the installed ssh-keygen's"
@@ -247,6 +276,7 @@ fi
 note "certificates ssh-keygen will not write, built by hand"
 out=$(python3 "$HERE/craft.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -L" "crafted certificates" "$(num "$out" '^\([0-9]*\) crafted.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* crafted, [0-9]* shown identically, [0-9]* refused by both, 0 differ$'; then
     ok "the crafted shapes read the same way as ssh-keygen reads them"
@@ -257,6 +287,7 @@ fi
 note "construct counts, and the constructs the suite depends on"
 out=$(python3 "$HERE/countcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -L and python" "construct counts" "$(num "$out" '^\([0-9]*\) cross-checked.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* cross-checked, 0 differ, 0 required constructs missing$'; then
     ok "every construct the comparisons depend on is present in the corpus"
@@ -267,6 +298,7 @@ fi
 note "RFC 4716 and PKCS8, both directions"
 out=$(python3 "$HERE/convertcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -e, -i and openssl" "container conversions" "$(num "$out" '^\([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* compared, 0 differ, 0 refused; .* 0 under-refused$'; then
     ok "both containers round trip and the PKCS8 bytes are ssh-keygen's"
@@ -277,6 +309,7 @@ fi
 note "detached SSHSIG signatures, against ssh-keygen -Y verify and openssl"
 out=$(python3 "$HERE/sshsigcmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -Y verify and openssl" "detached signatures" "$(num "$out" '^\([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* compared, [0-9]* agree, 0 differ, [0-9]* refused by all$'; then
     ok "every detached signature verdict matches ssh-keygen and openssl"
@@ -287,6 +320,7 @@ fi
 note "the NIST curve constants, against the formulas they come from"
 out=$(python3 "$HERE/curvecmp.py" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "python arithmetic" "curve constants" "$(num "$out" '^\([0-9]*\) compared.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 | grep -q '^[0-9]* compared, 0 differ$'; then
     ok "every curve constant checks out, including n G being the identity"
 else
@@ -296,6 +330,7 @@ fi
 note "ECDSA signatures and keys that must not verify"
 out=$(python3 "$HERE/eccases.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "sshkeyv alone" "ECDSA refusal cases" "$(num "$out" '^\([0-9]*\) cases.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* cases, [0-9]* refused, 0 wrong$'; then
     ok "every bad ECDSA signature or key is refused, with the right reason"
@@ -306,6 +341,7 @@ fi
 note "verify --ca: every certificate against every CA key in the corpus"
 out=$(sh "$HERE/cacmp.sh" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -L" "certificate and CA pairs" "$(num "$out" '^\([0-9]*\) pairs.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* pairs, [0-9]* accepted, [0-9]* rejected, 0 wrong$'; then
     ok "each certificate is accepted by its own CA key and by no other"
@@ -316,6 +352,7 @@ fi
 note "a real low-exponent RSA forgery, and a key too small to look at"
 out=$(python3 "$HERE/forge.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "openssl" "forged signatures" "$(num "$out" '^\([0-9]*\) cases.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* cases, [0-9]* refused, 0 wrong$'; then
     ok "the Bleichenbacher forgery is refused and so is a 512-bit modulus"
@@ -326,6 +363,7 @@ fi
 note "Ed25519 keys of small order, where a good signature means nothing"
 out=$(python3 "$HERE/smallorder.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "openssl and ssh-keygen -L" "small-order key cases" "$(num "$out" '^\([0-9]*\) cases.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* cases, [0-9]* as expected, 0 differ, [1-9][0-9]* known oracle disagreements$'; then
     ok "small-order keys behave as computed, with one recorded disagreement"
@@ -336,6 +374,7 @@ fi
 note "Ed25519 signatures that must not verify"
 out=$(python3 "$HERE/edcases.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "openssl" "Ed25519 refusal cases" "$(num "$out" '^\([0-9]*\) cases.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* cases, [0-9]* refused, 0 wrong, 0 wrong reason, 0 oracle differs$'; then
     ok "every non-canonical Ed25519 encoding is refused, with the right reason"
@@ -346,6 +385,7 @@ fi
 note "malformed key lines, with ssh-keygen as the authority on malformed"
 out=$(python3 "$HERE/refusecmp.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "ssh-keygen -l" "malformed key lines" "$(num "$out" '^\([0-9]*\) cases.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* cases, [0-9]* refused by both, 0 over-refused, 0 under-refused$'; then
     ok "sshkeyv and ssh-keygen refuse the same lines"
@@ -365,6 +405,7 @@ fi
 note "malformed input in bulk: prefixes, byte flips, mangled blobs"
 out=$(python3 "$HERE/hostile.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "sshkeyv alone" "malformed inputs" "$(num "$out" '^\([0-9]*\) inputs.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* inputs, [0-9]* read, [0-9]* refused, 0 crashed, 0 timed out$'; then
     ok "nothing in the malformed sweep crashed or hung"
@@ -387,6 +428,7 @@ fi
 note "determinism, and the same key in three containers"
 out=$(sh "$HERE/determinism.sh" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
+record "sshkeyv alone" "repeated runs and containers" "$(num "$out" '^\([0-9]*\) commands run twice.*$')"
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
      | grep -q '^[0-9]* commands run twice, 0 differ; [0-9]* keys in 3 containers, 0 differ$'; then
     ok "every command repeats itself and every container agrees"
@@ -438,6 +480,21 @@ if [ "$w" -eq 0 ]; then
     ok "the release build is warning-free"
 else
     no "the release build emits $w warnings"
+fi
+
+note "the oracle roster"
+# Printed from numbers the comparisons produced, not from a list written
+# here, and every one of them must be non-zero. A comparison that ran and
+# compared nothing is the failure mode this exists to catch.
+printf "$ROSTER" | sort | awk -F'\t' \
+    '{printf "    %-34s %-32s %s\n", $1, $2, ($3 == "" ? "NOT MEASURED" : $3)}'
+zero=$(printf "$ROSTER" | awk -F'\t' 'NF && ($3 == "" || $3 == "0")' | wc -l)
+rows=$(printf "$ROSTER" | grep -c .)
+if [ "$rows" -ge 27 ] && [ "$zero" -eq 0 ]; then
+    ok "all $rows comparisons reported a non-zero count"
+else
+    no "$zero of $rows comparisons reported nothing"
+    printf "$ROSTER" | awk -F'\t' '$3 == "" || $3 == "0" {print "    " $0}'
 fi
 
 echo
