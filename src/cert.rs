@@ -132,13 +132,12 @@ impl<'a> Cert<'a> {
         }
         let valid_after = r.u64()?;
         let valid_before = r.u64()?;
-        if valid_after > valid_before {
-            return Err(format!(
-                "validity window is empty: valid after {} is later than \
-                 valid before {}",
-                valid_after, valid_before
-            ));
-        }
+        // A window whose start is after its end is NOT refused here, and
+        // that is a change the oracle forced: ssh-keygen -L reads such a
+        // certificate and prints "Valid: from 2033-05-18T03:33:20 to
+        // 2001-09-09T01:46:40" without a word. Over-refusing where the
+        // oracle reads is a defect, so the fact is reported by valid
+        // instead, which is where somebody would look for it.
         let critical = opt_seq(r.string()?, "critical options")?;
         let extensions = opt_seq(r.string()?, "extensions")?;
         let reserved = r.string()?;

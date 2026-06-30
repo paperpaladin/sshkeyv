@@ -20,6 +20,20 @@ use crate::time;
 pub fn valid(path: &str, c: &Cert, at: u64) -> (String, bool) {
     let a = c.valid_after;
     let b = c.valid_before;
+    if a > b {
+        // An empty window. ssh-keygen -L prints the two dates and leaves
+        // the reader to notice, which nobody does.
+        return (
+            format!(
+                "{}: NEVER valid: the window starts {} and ends {}, which \
+                 is earlier",
+                path,
+                time::format(a).unwrap_or_else(|| a.to_string()),
+                time::format(b).unwrap_or_else(|| b.to_string())
+            ),
+            false,
+        );
+    }
     if at < a {
         let s = match time::format(a) {
             Some(s) => s,

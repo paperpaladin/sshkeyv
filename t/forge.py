@@ -217,6 +217,24 @@ def main():
         results.append(("openssl accepts the forgery", False,
                         "which would mean the forgery is valid"))
 
+    # An RSA signature whose length is not the modulus length. RFC 8017
+    # fixes it at exactly k bytes and a verifier that pads or truncates
+    # is one that will disagree with another verifier about the same
+    # bytes. Nothing in the corpus has a wrong-length signature, because
+    # ssh-keygen does not write one.
+    long_sig = put(b"rsa-sha2-256") + put(b"\x00" + s.to_bytes(k, "big"))
+    _, blob3 = cert_blob(capub, long_sig, subject, "longsig")
+    path3 = os.path.join(work, "longsig-cert.pub")
+    with open(path3, "w") as f:
+        f.write("ssh-ed25519-cert-v01@openssh.com %s longsig\n"
+                % base64.b64encode(blob3).decode())
+    p3 = subprocess.run([BIN, "verify", path3], stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE)
+    out3 = (p3.stdout.decode() + p3.stderr.decode()).strip()
+    results.append(("an RSA signature one byte longer than the modulus",
+                    p3.returncode != 0 and "and the modulus is" in out3,
+                    out3))
+
     # A 512-bit modulus. It need not be a real RSA key: the refusal must
     # happen on the size, before any arithmetic.
     small_n = (1 << 511) | 1

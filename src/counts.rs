@@ -135,6 +135,9 @@ impl Counts {
         if c.nonce.is_empty() {
             self.bump("cert.nonce.empty");
         }
+        if c.valid_after > c.valid_before {
+            self.bump("cert.valid.backwards");
+        }
         match (c.valid_after, c.valid_before) {
             (0, time::FOREVER) => self.bump("cert.valid.forever"),
             (0, _) => self.bump("cert.valid.before-only"),

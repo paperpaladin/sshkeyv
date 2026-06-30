@@ -23,6 +23,15 @@ all:
 test: all
 	sh t/run.sh
 
+# Not part of `make test`: every mutant is a full rebuild plus the
+# comparison scripts. The numbers it prints are the ones in the README.
+#
+# The target name was already in .PHONY with no recipe behind it, so
+# `make mutants` quietly did nothing and exited 0, which is the worst
+# way for a mutation harness to be absent.
+mutants: all
+	python3 t/mutants.py
+
 clean:
 	$(CARGO) clean
 	rm -rf t/corpus t/scratch

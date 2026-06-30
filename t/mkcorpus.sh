@@ -36,6 +36,12 @@ kg -t rsa -b 4096 -N '' -C 'rsa 4096'         -f rsa4096
 # an empty one.
 kg -t ed25519 -N '' -C 'a comment with spaces and a # in it' -f ed25519_comment
 kg -t ed25519 -N '' -C ''                     -f ed25519_nocomment
+# A comment long enough that the RFC 4716 Comment header must be
+# continued with a trailing backslash. Nothing ssh-keygen generates by
+# default is this long, and without it the continuation rule is written
+# and never exercised.
+kg -t ed25519 -N '' -f ed25519_longcomment \
+   -C 'a comment long enough that the RFC 4716 header line has to be continued, which takes rather more than seventy-two characters to arrange'
 
 # ---- keys with a passphrase --------------------------------------------
 # Three KDF rounds settings and two ciphers, because the KDF header is the

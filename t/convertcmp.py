@@ -158,6 +158,31 @@ def main():
                 differ += 1
                 bad.append("%s: ssh-keygen read a different blob from "
                            "sshkeyv's rfc4716" % name)
+            # And sshkeyv must read back what sshkeyv wrote. Without
+            # this the continuation rule is exercised in the writer and
+            # never in the reader, because the block ssh-keygen writes
+            # has a short Comment and never needs continuing.
+            mine_back = run(BIN, "convert", "-m", "openssh", mine)
+            compared += 1
+            if mine_back.returncode != 0:
+                refused += 1
+                bad.append("%s: cannot read its own rfc4716: %s"
+                           % (name, mine_back.stderr.decode().strip()))
+            elif blob_of_line(mine_back.stdout.decode()) != blob:
+                differ += 1
+                bad.append("%s: reading its own rfc4716 gave a different "
+                           "blob" % name)
+            else:
+                mb = mine_back.stdout.decode().split(None, 2)
+                want_c = line.split(None, 2)[2] if len(
+                    line.split(None, 2)) == 3 else None
+                got_c = mb[2].strip() if len(mb) == 3 else None
+                compared += 1
+                if want_c != got_c:
+                    differ += 1
+                    bad.append("%s: the comment did not survive its own "
+                               "rfc4716: %r became %r"
+                               % (name, want_c, got_c))
         theirs = run("ssh-keygen", "-e", "-m", "rfc4716", "-f", path)
         if theirs.returncode == 0:
             tp = os.path.join(work, "theirs.rfc4716")

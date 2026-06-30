@@ -62,8 +62,8 @@ def build(subject_pk, cakey, sig, **kw):
             + struct.pack(">I", kw.get("ctype", 1))
             + put(kw.get("keyid", b"crafted"))
             + put(b"".join(put(p) for p in principals))
-            + struct.pack(">Q", 0)
-            + struct.pack(">Q", 2 ** 64 - 1)
+            + struct.pack(">Q", kw.get("valid", (0, 2 ** 64 - 1))[0])
+            + struct.pack(">Q", kw.get("valid", (0, 2 ** 64 - 1))[1])
             + put(b"".join(put(n) + put(v) for n, v in critical))
             + put(b"".join(put(n) + put(v) for n, v in extensions))
             + put(reserved)
@@ -137,6 +137,13 @@ def main():
             principals=[b"p%04d" % i for i in range(256)]),
         "too-many-principals": dict(
             principals=[b"p%04d" % i for i in range(257)]),
+        # A certificate type that is neither user nor host, which
+        # ssh-keygen refuses with "unknown/unsupported certificate type".
+        "type-3": dict(ctype=3),
+        # A window that ends before it starts. ssh-keygen -L prints it
+        # without a word, so sshkeyv reads it too and says NEVER valid
+        # from the valid command instead of refusing to parse.
+        "window-backwards": dict(valid=(2000000000, 1000000000)),
         # A reserved field with something in it. PROTOCOL.certkeys says it
         # is currently unused.
         "reserved-nonempty": dict(reserved=b"something"),
@@ -187,18 +194,45 @@ def main():
             # option on its line and carries on. Reported, counted apart,
             # and the reason ssh-keygen gave is printed so that a
             # signature complaint cannot hide among them.
+            err = theirs.stderr.decode()
             print("    sshkeyv reads what ssh-keygen -L dies on: %s -- %s"
-                  % (name, theirs.stderr.decode().strip().splitlines()[-1]
+                  % (name, err.strip().splitlines()[-1]
                      if theirs.stderr else "no message"))
-            if "signature" in theirs.stderr.decode():
+            if "signature" in err:
                 differ += 1
                 print("  the crafted signature stopped being valid, so "
                       "ssh-keygen is not acting as an oracle here")
+            elif "invalid key:" in err:
+                # ssh-keygen refused the certificate structurally rather
+                # than dying inside its option printer, so sshkeyv reading
+                # it is an under-refusal. Counting only the option-printer
+                # case as allowed is what makes the 256-principal and
+                # certificate-type checks load-bearing: without this
+                # branch both mutants survived.
+                differ += 1
+                print("  UNDER-REFUSED %s: ssh-keygen refuses it "
+                      "structurally" % name)
         else:
             differ += 1
             print("  UNDER-REFUSED %s: ssh-keygen -L reads it, sshkeyv "
                   "will not: %s"
                   % (name, mine.stderr.decode().strip()))
+
+    # The window-backwards case has an answer only the valid command
+    # gives, so it is asked for here. Without this nothing exercises the
+    # empty-window branch at all and the check for it survives mutation.
+    wb = os.path.join(work, "window-backwards-cert.pub")
+    if os.path.exists(wb):
+        v = subprocess.run([BIN, "valid", wb], stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE)
+        line = v.stdout.decode().strip()
+        if v.returncode != 4 or "NEVER valid" not in line:
+            differ += 1
+            print("  the backwards window is not reported: rc=%d %r"
+                  % (v.returncode, line))
+        else:
+            print("    valid on the backwards window: %s"
+                  % line.split(": ", 1)[1])
 
     # The constructs these files exist for.
     files = [os.path.join(work, n) for n in sorted(os.listdir(work))]
@@ -209,7 +243,7 @@ def main():
         counts[k] = int(v)
     need = ["cert.critical.unordered", "cert.extensions.unordered",
             "cert.nonce.empty", "cert.principals.many",
-            "cert.reserved.nonempty"]
+            "cert.reserved.nonempty", "cert.valid.backwards"]
     # Bisect ssh-keygen for the principal limit instead of believing the
     # number in src/cert.rs. A limit that moves in a future OpenSSH turns
     # this red rather than quietly becoming an over-refusal.

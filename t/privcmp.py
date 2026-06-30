@@ -118,7 +118,78 @@ MALFORMED = [
     ("one byte short", lambda b: b[:-1]),
     ("four trailing bytes", lambda b: b + b"\0\0\0\0"),
     ("private section truncated by one byte", lambda b: trim_private(b)),
+    # The two check words made to differ, which is exactly what a wrong
+    # passphrase produces, and the padding made wrong. Neither can occur
+    # in a corpus ssh-keygen wrote, and without them the checks for both
+    # survive mutation.
+    ("the two check words differ", lambda b: break_checkint(b)),
 ]
+
+# These need a container whose padding is not empty, and ed25519's is: its
+# private section happens to land on a multiple of 8. ecdsa256's has six
+# bytes of padding. Without a base that has any, the padding check
+# survives mutation while looking tested.
+MALFORMED_PADDED = [
+    ("the padding is zeros", lambda b: zero_padding(b)),
+    ("the padding counts down", lambda b: reverse_padding(b)),
+]
+
+
+def private_offset(b):
+    o = len(MAGIC)
+    for _ in range(3):
+        _, o = sshstr(b, o)
+    (nkeys,) = struct.unpack(">I", b[o:o + 4]); o += 4
+    for _ in range(nkeys):
+        _, o = sshstr(b, o)
+    (n,) = struct.unpack(">I", b[o:o + 4])
+    return o + 4, n
+
+
+def break_checkint(b):
+    o, n = private_offset(b)
+    m = bytearray(b)
+    m[o + 7] ^= 1
+    return bytes(m)
+
+
+def padding_len(b):
+    """(padding length, private section offset, private section length).
+
+    The padding is 1, 2, 3, ... up to one less than the block size, so the
+    LAST byte is the padding length and the bytes before it count down to
+    1. Reading it that way rather than walking back over non-zero bytes
+    matters: the comment sits immediately before the padding and is also
+    non-zero, so a walk runs straight into it and the resulting case
+    tests the length check rather than the value check."""
+    o, n = private_offset(b)
+    if n == 0:
+        return 0, o, n
+    k = b[o + n - 1]
+    if k == 0 or k > 15 or k > n:
+        return 0, o, n
+    for i in range(k):
+        if b[o + n - 1 - i] != k - i:
+            return 0, o, n
+    return k, o, n
+
+
+def reverse_padding(b):
+    k, o, n = padding_len(b)
+    assert k > 0, "the base container has no padding to break"
+    m = bytearray(b)
+    for i in range(k):
+        m[o + n - k + i] = k - i
+    return bytes(m)
+
+
+def zero_padding(b):
+    k, o, n = padding_len(b)
+    assert k > 0, "the base container has no padding to break"
+    m = bytearray(b)
+    for i in range(k):
+        m[o + n - 1 - i] = 0
+    return bytes(m)
 
 
 def set_nkeys(b, n):
@@ -218,17 +289,29 @@ def main():
     work = os.path.join(d, "privrefuse")
     os.makedirs(work, exist_ok=True)
     base = pem_body(os.path.join(d, "ed25519"))
+    padded = pem_body(os.path.join(d, "ecdsa256"))
     both = over = under = 0
-    for i, (label, f) in enumerate(MALFORMED):
+    cases = ([(l, f, base) for l, f in MALFORMED]
+             + [(l, f, padded) for l, f in MALFORMED_PADDED])
+    for i, (label, f, base_i) in enumerate(cases):
         path = os.path.join(work, "case%02d" % i)
         try:
-            write_pem(path, f(base))
+            write_pem(path, f(base_i))
         except Exception as e:
             bad.append("%s: could not build the case: %s" % (label, e))
             differ += 1
             continue
         a = subprocess.run([BIN, "priv", path], stdout=subprocess.DEVNULL,
                            stderr=subprocess.PIPE)
+        # An exit code outside sshkeyv's own set is a crash, not a
+        # refusal. Counting it as a refusal is how a mutant that removes
+        # the key-count check survives: with it gone, a container claiming
+        # zero keys makes the code index an empty list and abort, and the
+        # abort reads as a tidy refusal from the outside.
+        if a.returncode not in (0, 1, 2, 3, 4, 5):
+            differ += 1
+            bad.append("%s: CRASHED with exit %d" % (label, a.returncode))
+            continue
         # -y and not -l. ssh-keygen -l on a private key file reads only
         # the PUBLIC half of the container and never looks at the private
         # section, so it answered "fine" for three cases whose private
