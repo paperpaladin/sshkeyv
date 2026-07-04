@@ -19,10 +19,22 @@ pub struct Pem {
 pub fn parse(text: &str) -> Result<Pem, String> {
     let mut lines = text.lines();
     let mut label = None;
-    // Skip anything before the BEGIN line: ssh-keygen tolerates leading
-    // whitespace and so does every PEM reader in the wild.
+    // trim_end and not trim, and the difference was measured rather than
+    // chosen. Trailing whitespace on a line is accepted by ssh-keygen and
+    // by openssl, and trimming the end is also what makes a CRLF file
+    // readable. LEADING whitespace is refused by both of them: an
+    // indented BEGIN line is not a BEGIN line to either program. This
+    // read l.trim() and so accepted an indented block that no other tool
+    // on the machine will read, which t/pemcmp.py found the first time it
+    // ran. The comment that used to sit here said ssh-keygen tolerates
+    // leading whitespace. It does not.
+    //
+    // A blank line before BEGIN is skipped, which agrees with openssl and
+    // disagrees with ssh-keygen. One armour reader serves two containers
+    // whose readers disagree, so some rule here has to disagree with one
+    // of them; pemcmp.py lists the four places that happens.
     for l in lines.by_ref() {
-        let l = l.trim();
+        let l = l.trim_end();
         if let Some(rest) = l.strip_prefix("-----BEGIN ") {
             match rest.strip_suffix("-----") {
                 Some(name) => {
@@ -43,7 +55,7 @@ pub fn parse(text: &str) -> Result<Pem, String> {
     let mut b64 = String::new();
     let mut closed = false;
     for l in lines {
-        let l = l.trim();
+        let l = l.trim_end();
         if let Some(rest) = l.strip_prefix("-----END ") {
             let name = match rest.strip_suffix("-----") {
                 Some(n) => n,

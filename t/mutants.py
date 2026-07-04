@@ -62,6 +62,7 @@ SCRIPTS = {
     "edcase":   ("edcases.py", ["C"]),
     "refuse":   ("refusecmp.py", ["C"]),
     "det":      ("determinism.sh", ["C"]),
+    "pem":      ("pemcmp.py", ["C"]),
 }
 
 # (name, file, from, to, comparisons, expected)
@@ -248,6 +249,15 @@ MUTANTS = [
     ("key: the two spellings of the algorithm name need not agree",
      "src/key.rs", "        if inner != name {", "        if false {",
      ["refuse"], "killed"),
+    ("pem: the END label need not match the BEGIN label", "src/pem.rs",
+     "            if name != label {", "            if false {",
+     ["pem"], "killed"),
+    ("pem: a block with no END line is accepted", "src/pem.rs",
+     "    if !closed {", "    if false {", ["pem"], "killed"),
+    ("pem: leading whitespace on a line is trimmed away", "src/pem.rs",
+     "    for l in lines.by_ref() {\n        let l = l.trim_end();",
+     "    for l in lines.by_ref() {\n        let l = l.trim();",
+     ["pem"], "killed"),
     ("verify: an untrusted CA is accepted", "src/main.rs",
      "                if !trusted.is_empty()\n                    && !trusted"
      ".iter().any(|t| t == c.signature_key)\n                {",
@@ -265,8 +275,10 @@ SURVIVOR_REASONS = {
         "immediately afterwards and refuses the same inputs; only the "
         "wording of the message and the offset in it change, and the "
         "offsets differ by four, so an input could tell them apart. The "
-        "89,113-case malformed sweep contains such inputs and does not "
-        "look at messages.",
+        "malformed sweep contains such inputs and does not look at "
+        "messages. Its size is not quoted here because it moves by a few "
+        "between runs: the corpus is freshly generated and a key whose "
+        "modulus has a leading zero octet makes a longer line.",
     "b64: the unused bits of the last character need not be zero":
         "removing it makes sshkeyv AGREE with python's base64 on four "
         "inputs it currently over-refuses, and no comparison here fails "

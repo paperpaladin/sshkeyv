@@ -393,6 +393,22 @@ else
     no "sshkeyv and ssh-keygen disagree about which lines are malformed"
 fi
 
+note "the PEM armour itself, bent twelve ways"
+out=$(python3 "$HERE/pemcmp.py" "$C" 2>&1); rc=$?
+echo "$out" | sed 's/^/    /'
+record "ssh-keygen -y and openssl pkey" "PEM armour cases" "$(num "$out" '^\([0-9]*\) cases.*$')"
+# The known disagreements are required to be non-zero as well as the
+# over- and under-refusals to be zero. The two containers this armour
+# serves are read by two programs that disagree with each other about
+# four shapes, so a run reporting none of them is a run where the cases
+# stopped being built rather than one where everybody agreed.
+if [ $rc -eq 0 ] && echo "$out" | tail -1 \
+     | grep -q '^[0-9]* cases, [0-9]* agree, 0 over-refused, 0 under-refused, [1-9][0-9]* known disagreements$'; then
+    ok "the armour reads the way ssh-keygen and openssl read it"
+else
+    no "the armour is read differently from ssh-keygen or openssl"
+fi
+
 note "the planted one-past-the-end read, both ways"
 out=$(cd "$ROOT" && make overread 2>&1); rc=$?
 echo "$out" | grep -v '^ *Compiling\|^ *Finished\|^cargo\|^sh ' | sed 's/^/    /'
@@ -490,7 +506,7 @@ printf "$ROSTER" | sort | awk -F'\t' \
     '{printf "    %-34s %-32s %s\n", $1, $2, ($3 == "" ? "NOT MEASURED" : $3)}'
 zero=$(printf "$ROSTER" | awk -F'\t' 'NF && ($3 == "" || $3 == "0")' | wc -l)
 rows=$(printf "$ROSTER" | grep -c .)
-if [ "$rows" -ge 27 ] && [ "$zero" -eq 0 ]; then
+if [ "$rows" -ge 28 ] && [ "$zero" -eq 0 ]; then
     ok "all $rows comparisons reported a non-zero count"
 else
     no "$zero of $rows comparisons reported nothing"
