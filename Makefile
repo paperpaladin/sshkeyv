@@ -36,7 +36,12 @@ clean:
 	$(CARGO) clean
 	rm -rf t/corpus t/scratch
 
-.PHONY: all test clean mutants overread hostile
+# hostile was in this list with no recipe behind it, which is the same
+# defect mutants had: make hostile printed "Nothing to be done" and
+# exited 0. t/hostile.py is run by t/run.sh and needs no target of its
+# own, so the name goes rather than a target being invented for it. The
+# suite checks this list against the rules below now.
+.PHONY: all test clean mutants overread
 
 # METHOD's buffer section, applied to Rust. The release profile is
 # panic = abort, so a caught over-read gives exit 134, which is SIGABRT

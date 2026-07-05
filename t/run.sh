@@ -461,6 +461,38 @@ else
     no "the two builds differ"
 fi
 
+note "every script in t/ is reachable, and every phony target has a recipe"
+# A tool written and never wired in is the defect this checks for, and it
+# has happened twice in this one Makefile: mutants and hostile were both
+# in .PHONY with no rule behind them, so make answered and answered yes
+# while the script sat there unrun. That is worse than the target not
+# existing, which at least fails.
+unreached=
+for f in "$HERE"/*.py "$HERE"/*.sh; do
+    b=${f##*/}
+    grep -qF -- "$b" "$HERE/run.sh" "$HERE/mutants.py" "$ROOT/Makefile" \
+        || unreached="$unreached $b"
+done
+if [ -z "$unreached" ]; then
+    ok "every script in t/ is named by run.sh, mutants.py or the Makefile"
+else
+    no "these scripts in t/ are reached from nothing:$unreached"
+fi
+# A .PHONY name with no rule, or a rule with no recipe line under it.
+norecipe=$(awk '
+    /^\.PHONY:/ { for (i = 2; i <= NF; i++) want[$i] = 1; next }
+    /^[A-Za-z0-9_.\/-]+:/ { cur = $1; sub(/:.*/, "", cur)
+                            if (!(cur in has)) has[cur] = 0
+                            next }
+    /^\t/ { if (cur != "") has[cur] = 1; next }
+    END { for (t in want) if (!(t in has) || has[t] == 0) print t }
+' "$ROOT/Makefile")
+if [ -z "$norecipe" ]; then
+    ok "every .PHONY target in the Makefile has a recipe"
+else
+    no "these .PHONY targets have no recipe: $(echo $norecipe)"
+fi
+
 note "source invariants"
 # METHOD hard rule 3: ASCII punctuation only, in prose and in comments.
 # No file in this tree has a reason to hold anything else: there is no
