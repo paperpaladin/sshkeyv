@@ -123,6 +123,17 @@ MALFORMED = [
     # in a corpus ssh-keygen wrote, and without them the checks for both
     # survive mutation.
     ("the two check words differ", lambda b: break_checkint(b)),
+    # The container carries the public key twice, once in clear and once
+    # inside the private section, and nothing in the corpus has them
+    # disagree. One bit in either copy is enough. ssh-keygen -y refuses
+    # both, and ssh-keygen -l reads both and prints a fingerprint, which
+    # is the sharpest illustration of why -l is not the authority here:
+    # for the first case the fingerprint it prints is of a key the file
+    # does not contain.
+    ("the container's copy of the public key is wrong",
+     lambda b: flip_container_public(b)),
+    ("the private section's copy of the public key is wrong",
+     lambda b: flip_private_public(b)),
 ]
 
 # These need a container whose padding is not empty, and ed25519's is: its
@@ -144,6 +155,32 @@ def private_offset(b):
         _, o = sshstr(b, o)
     (n,) = struct.unpack(">I", b[o:o + 4])
     return o + 4, n
+
+
+def flip_container_public(b):
+    """One bit of the clear copy of the public key, in the header."""
+    o = len(MAGIC)
+    for _ in range(3):
+        _, o = sshstr(b, o)
+    o += 4                      # the key count
+    pub, _ = sshstr(b, o)
+    m = bytearray(b)
+    m[o + 4 + len(pub) - 1] ^= 1
+    return bytes(m)
+
+
+def flip_private_public(b):
+    """One bit of the copy inside the private section.
+
+    checkint twice, then the key type string, then the public half. The
+    first byte of the public half is enough and leaves every length in
+    the file alone, so nothing but the comparison between the two copies
+    can notice."""
+    o, _ = private_offset(b)
+    _, p = sshstr(b, o + 8)
+    m = bytearray(b)
+    m[p + 4] ^= 1
+    return bytes(m)
 
 
 def break_checkint(b):
