@@ -20,9 +20,20 @@ top of the list must verify or none of the refusals mean anything.
   A public point whose coordinates are not on the curve, and one whose x
   is at or above the field prime.
 
-openssl is asked about each one over the same bytes. Where openssl cannot
-be driven, because the DER signature cannot be formed from the bytes, that
-is counted apart from openssl giving a verdict.
+openssl is asked about each one over the same bytes, through the helpers
+in t/sigcmp.py rather than a second copy of them. Where openssl cannot be
+driven that is counted apart from openssl giving a verdict, and the two
+point cases are always in that group: ssh-keygen -e -m pkcs8 will not
+write a SubjectPublicKeyInfo for a point that is not on the curve, so
+there is no key to hand openssl and the refusal happens one step earlier
+than the question.
+
+This paragraph described the openssl half for some time before the
+openssl half existed. The script called sshkeyv and nothing else, and the
+oracle roster said so in plain sight, reporting these cases under
+"sshkeyv alone" while the docstring claimed an outside authority. The
+Ed25519 cases next door had had theirs from the start, which is what made
+the gap visible.
 
 Each case also carries the reason sshkeyv must give. That is not
 decoration: three of these four checks are not needed for the VERDICT,
@@ -39,6 +50,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BIN = os.path.join(HERE, "..", "target", "release", "sshkeyv")
+
+sys.path.insert(0, HERE)
+import sigcmp                                            # noqa: E402
 
 ORDERS = {
     "nistp256": 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551,
@@ -143,6 +157,8 @@ def main():
     cases = 0
     refused = 0
     wrong = 0
+    asked = 0          # cases openssl gave a verdict on
+    undrivable = 0     # cases openssl could not be asked about at all
     for (algo, blob, tbs, cakey, caname, curve, capoint, r,
          s) in seen:
         n = ORDERS[curve]
@@ -194,6 +210,26 @@ def main():
             rc, out = sshkeyv(path)
             ok = rc == 0
             cases += 1
+            # And openssl over the same bytes, with OpenSSH out of the
+            # signature arithmetic. A verdict that disagrees is counted
+            # as wrong; no verdict at all is counted apart, because a
+            # question this script could not form is not openssl
+            # answering one.
+            tbs2, cakey2, sig2 = sigcmp.split_cert(b)
+            pem = sigcmp.spki(cakey2, work)
+            theirs = None
+            if pem is not None:
+                theirs = sigcmp.openssl_verify(pem, caname, sig2, tbs2,
+                                               work)
+            if theirs is None:
+                undrivable += 1
+            else:
+                asked += 1
+                if theirs != want_good:
+                    wrong += 1
+                    print("  OPENSSL DISAGREES %s/%s: openssl says %s"
+                          % (curve, label,
+                             "good" if theirs else "refused"))
             if ok == want_good and not want_good and reason not in out:
                 wrong += 1
                 print("  WRONG REASON %s/%s: %s"
@@ -210,7 +246,15 @@ def main():
     gap = len(curves) < 3
     if gap:
         print("  CORPUS GAP: fewer than three ECDSA CA curves")
-    print("%d cases, %d refused, %d wrong" % (cases, refused, wrong))
+    # An oracle that was never asked is the failure this is here to
+    # catch, so the count it answered has to be non-zero rather than
+    # merely consistent.
+    if asked == 0:
+        gap = True
+        print("  ORACLE GAP: openssl gave a verdict on nothing")
+    print("%d cases, %d refused, %d wrong, %d judged by openssl, "
+          "%d openssl could not be asked about"
+          % (cases, refused, wrong, asked, undrivable))
     return 1 if (wrong or gap) else 0
 
 

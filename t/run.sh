@@ -330,9 +330,12 @@ fi
 note "ECDSA signatures and keys that must not verify"
 out=$(python3 "$HERE/eccases.py" "$C" 2>&1); rc=$?
 echo "$out" | sed 's/^/    /'
-record "sshkeyv alone" "ECDSA refusal cases" "$(num "$out" '^\([0-9]*\) cases.*$')"
+record "openssl" "ECDSA refusal cases" "$(num "$out" '^\([0-9]*\) cases.*$')"
+# The openssl count must be non-zero. These cases ran under "sshkeyv
+# alone" for a while with a docstring that said openssl was asked, so
+# the number openssl actually judged is on the summary line and gated.
 if [ $rc -eq 0 ] && echo "$out" | tail -1 \
-     | grep -q '^[0-9]* cases, [0-9]* refused, 0 wrong$'; then
+     | grep -q '^[0-9]* cases, [0-9]* refused, 0 wrong, [1-9][0-9]* judged by openssl, [0-9]* openssl could not be asked about$'; then
     ok "every bad ECDSA signature or key is refused, with the right reason"
 else
     no "a bad ECDSA signature or key was accepted or misdiagnosed"
