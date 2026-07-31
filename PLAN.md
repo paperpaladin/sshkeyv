@@ -14,8 +14,22 @@ sshkeyv authorises NAME FILE        does this certificate authorise NAME
 sshkeyv sigverify --key FILE -n NS -s SIGFILE [FILE]
 sshkeyv convert -m FORMAT FILE      rfc4716, pkcs8 or openssh
 sshkeyv counts [FILE...]            how many of each construct the files hold
-sshkeyv sshd-ext --version N FILE   extensions this sshd would not understand
+sshkeyv unknown [FILE...]           options the local OpenSSH does not know
+sshkeyv blob [FILE...]              the top-level SSH strings of a blob
 ```
+
+This list said `sshd-ext --version N` where it now says `unknown`. That
+command was never built and the plan item for it is blocked below, for
+want of any authority on this machine for a per-release table. `unknown`
+is what exists: the same question asked of the installed OpenSSH, whose
+recognised set is measured by probing it. A contract naming a command
+that does not exist is the sort of thing a reader checks the code
+against once and then stops trusting the file.
+
+Five more commands exist and are not in the contract because they are
+there for the suite rather than for a user: `time`, `curve`, `big`,
+`hash` and `b64`. Each exposes one internal piece so that an outside
+oracle can be put beside it.
 
 `FILE` is a public key line, a certificate line, an OpenSSH private key
 container, an RFC4716 block or a PEM SubjectPublicKeyInfo. The format is
@@ -323,10 +337,28 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       malformed cases
   why: a length field read as an index is where every parser of this shape
   breaks, and the measurement is crashes and hangs, not opinions.
-- [ ] mutation testing: one edit at a time, rebuild, run the suite, with
+- [x] mutation testing: one edit at a time, rebuild, run the suite, with
       the survivors written down
   why: the suite's own test. An equivalent mutant recorded honestly is
-  worth more than a kill claimed.
+  worth more than a kill claimed. `make mutants` was in `.PHONY` with no
+  recipe, so it did nothing and exited 0; the table found six checks
+  nothing in the suite could see, and each is now watched.
+- [x] the PEM armour bent sixteen ways, against ssh-keygen -y and
+      openssl pkey
+  why: every other comparison hands sshkeyv a tidy block and argues
+  about the inside of it, so the label-match and missing-END rules had
+  never been reached. It found an indented BEGIN line that sshkeyv read
+  and nothing else on the machine will.
+- [x] the two copies of the public key in a container, made to disagree
+  why: the comparison that caught the RSA field swap had never been
+  made to fail, and deleting it left the whole suite green.
+- [x] openssl over the ECDSA refusal cases
+  why: the Ed25519 refusals had an outside authority and these did not,
+  while the docstring said they did and the roster said "sshkeyv alone".
+- [x] every script in t/ reachable from `make test` or `make mutants`,
+      and every `.PHONY` target holding a recipe
+  why: the shape rather than the instance. Two names in one Makefile
+  answered yes for doing nothing.
 - [ ] README: the oracles, the measured numbers, what the corpus holds and
       what does not work
   why: a README that lists only successes is not finished.
