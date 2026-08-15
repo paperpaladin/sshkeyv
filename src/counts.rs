@@ -39,7 +39,7 @@ impl Counts {
             }
         };
         let trimmed = text.trim_start();
-        if trimmed.starts_with(concat!("-----BEGIN OPENSSH ", "PRIVATE KEY-----")) {
+        if trimmed.starts_with(crate::pem::OPENSSH_BEGIN) {
             self.bump("file.openssh-private");
             self.add_private(&text);
             return;

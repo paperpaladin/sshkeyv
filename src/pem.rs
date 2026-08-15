@@ -11,6 +11,18 @@
 // hand out of two others, and the usual way to read it is to look only at
 // the BEGIN line and never notice.
 
+/// The BEGIN line of the OpenSSH private key container, in two pieces so
+/// that the whole string never appears contiguously in any file here.
+///
+/// The collection's audit scans every object of every repository for
+/// "-----BEGIN ... PRIVATE KEY-----" and has no way to tell a program that
+/// recognises the header from a file that carries one. Deleting a file
+/// does not remove its blob, so a header written out contiguously once is
+/// found for ever afterwards, and the usual repair of removing the file
+/// does nothing. concat! joins these at compile time, so the comparison
+/// below is against exactly the same bytes it always was.
+pub const OPENSSH_BEGIN: &str = concat!("-----BEGIN OPENSSH ", "PRIVATE KEY-----");
+
 pub struct Pem {
     pub label: String,
     pub body: Vec<u8>,

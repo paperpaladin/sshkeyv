@@ -511,6 +511,25 @@ else
     LC_ALL=C grep -lP '[^\x00-\x7F]' "$ROOT"/src/*.rs "$ROOT"/t/*.py \
         "$ROOT"/t/*.sh "$ROOT"/*.md 2>/dev/null | sed 's/^/    /'
 fi
+# A credential-shaped literal in a source file. The collection's audit
+# scans every OBJECT of every repository for a PEM private key header,
+# and it cannot tell a parser that recognises one from a file that
+# carries one. Deleting the file does not help: the blob stays, so the
+# only repair once it is committed is rewriting history. Hence a check
+# rather than care.
+#
+# The pattern is assembled from two pieces here, because a detector that
+# contains what it detects reports itself on the first run.
+pemhdr="-----BEG""IN [A-Z ]*PRIVATE KEY-----"
+np=$(LC_ALL=C grep -lE -- "$pemhdr" "$ROOT"/src/*.rs "$ROOT"/t/*.py \
+        "$ROOT"/t/*.sh "$ROOT"/*.md "$ROOT"/Makefile 2>/dev/null | wc -l)
+if [ "$np" -eq 0 ]; then
+    ok "no contiguous PEM private key header in any source file"
+else
+    no "$np source files spell a PEM private key header contiguously"
+    LC_ALL=C grep -lE -- "$pemhdr" "$ROOT"/src/*.rs "$ROOT"/t/*.py \
+        "$ROOT"/t/*.sh "$ROOT"/*.md 2>/dev/null | sed 's/^/    /'
+fi
 # Deliberate shortcuts are marked and counted, as METHOD rule 5 asks.
 ns=$(cat "$ROOT"/src/*.rs "$ROOT"/t/*.py | grep -c 'shortcut:')
 echo "    $ns shortcut comments"

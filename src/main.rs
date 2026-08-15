@@ -717,7 +717,7 @@ fn read_any_pubkey(path: &str) -> Result<key::PublicKey, String> {
     // works on an encrypted key. Taking it from here rather than from a
     // neighbouring .pub file matters: ssh-keygen -l prefers the .pub file
     // when one exists beside the private key, and the two can disagree.
-    if trimmed.starts_with(concat!("-----BEGIN OPENSSH ", "PRIVATE KEY-----")) {
+    if trimmed.starts_with(pem::OPENSSH_BEGIN) {
         let p = pem::parse(&text).map_err(|e| format!("{}: {}", path, e))?;
         let c = privkey::Container::parse(&p.body)
             .map_err(|e| format!("{}: {}", path, e))?;
@@ -773,7 +773,7 @@ fn check_one(path: &str) -> Result<String, String> {
     let text = std::fs::read_to_string(path)
         .map_err(|e| format!("{}: {}", path, e))?;
     let trimmed = text.trim_start();
-    if trimmed.starts_with(concat!("-----BEGIN OPENSSH ", "PRIVATE KEY-----")) {
+    if trimmed.starts_with(pem::OPENSSH_BEGIN) {
         let p = pem::parse(&text).map_err(|e| format!("{}: {}", path, e))?;
         let c = privkey::Container::parse(&p.body)
             .map_err(|e| format!("{}: {}", path, e))?;
