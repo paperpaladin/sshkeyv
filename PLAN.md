@@ -38,7 +38,9 @@ detected from the bytes, not from the name.
 Exit status: 0 when every requested check passed, 1 when the input is
 malformed or unreadable, 2 on a usage error, 3 when a signature did not
 verify, 4 when a certificate parsed but is not currently valid or does not
-authorise the principal asked about. The numbers are distinct because the
+authorise the principal asked about, and 5 when sshkeyv has no verifier
+for the algorithm named. 5 was missing from this list while `src/sig.rs`
+and the Makefile both named it. The numbers are distinct because the
 suite asserts on the difference. "Cannot parse it" and "parsed fine, the
 signature is wrong" are not the same answer and must not share an exit code:
 a harness that treats them alike reports a refusal as a caught forgery.
