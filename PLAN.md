@@ -361,6 +361,19 @@ reduced run would print a row of passes having compared sshkeyv with itself.
       and every `.PHONY` target holding a recipe
   why: the shape rather than the instance. Two names in one Makefile
   answered yes for doing nothing.
-- [ ] README: the oracles, the measured numbers, what the corpus holds and
+- [x] README: the oracles, the measured numbers, what the corpus holds and
       what does not work
-  why: a README that lists only successes is not finished.
+  why: a README that lists only successes is not finished. Ten things
+  that do not work are written out, the longest of them being the 19
+  objects already in this history that spell a PEM private key header
+  contiguously, which no edit from here can remove.
+- [x] the credential-shaped literal split in all six places, and a check
+      so it cannot come back
+  why: the collection's audit reads objects rather than the working
+  tree, so this is the one failure that a later commit cannot undo. The
+  working tree is clean and the blobs below are not.
+
+Every item is done except the blocked one. What is left is not in this
+list: the 19 matching objects want a `filter-branch` and that is a
+decision rather than a task, since it rewrites every hash here. Nothing
+in this collection has a remote, so it costs nothing but the choice.
